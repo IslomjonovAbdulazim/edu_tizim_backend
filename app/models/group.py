@@ -17,15 +17,19 @@ class Group(BaseModel):
     start_time = Column(Time, nullable=True)
     end_time = Column(Time, nullable=True)
 
-    # Learning Center relationship
+    # Branch relationship (groups belong to specific branches)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=False)
+    branch = relationship("Branch", back_populates="groups")
+
+    # Learning Center relationship (for backward compatibility and easier queries)
     learning_center_id = Column(Integer, ForeignKey("learning_centers.id"), nullable=False)
-    learning_center = relationship("LearningCenter", back_populates="groups")
+    learning_center = relationship("LearningCenter")
 
     # Course relationship
     course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
     course = relationship("Course", back_populates="groups")
 
-    # Teacher relationship (replaces manager_id)
+    # Teacher relationship
     teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=True)
     teacher = relationship("Teacher", back_populates="groups")
 
@@ -33,7 +37,9 @@ class Group(BaseModel):
     students = relationship("Student", secondary=student_group_association, back_populates="groups")
 
     def __str__(self):
-        return f"Group(name='{self.name}', course='{self.course.name}', teacher='{self.teacher.full_name if self.teacher else 'No teacher'}')"
+        branch_name = self.branch.name if self.branch else "No Branch"
+        teacher_name = self.teacher.full_name if self.teacher else "No teacher"
+        return f"Group(name='{self.name}', branch='{branch_name}', course='{self.course.name}', teacher='{teacher_name}')"
 
     @property
     def current_capacity(self):
@@ -46,6 +52,11 @@ class Group(BaseModel):
     @property
     def is_full(self):
         return self.current_capacity >= self.max_capacity
+
+    @property
+    def capacity_percentage(self):
+        """Get capacity utilization as percentage"""
+        return (self.current_capacity / self.max_capacity * 100) if self.max_capacity > 0 else 0
 
     def can_add_student(self):
         return self.is_active and not self.is_full
@@ -63,3 +74,18 @@ class Group(BaseModel):
     def has_teacher(self):
         """Check if group has an assigned teacher"""
         return self.teacher is not None
+
+    @property
+    def branch_name(self):
+        """Get branch name"""
+        return self.branch.name if self.branch else "No branch"
+
+    @property
+    def branch_address(self):
+        """Get branch address"""
+        return self.branch.address if self.branch else "No address"
+
+    @property
+    def full_location(self):
+        """Get full location info: Branch name"""
+        return self.branch_name

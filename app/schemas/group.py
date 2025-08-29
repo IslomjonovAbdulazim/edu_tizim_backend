@@ -24,9 +24,11 @@ class GroupBase(BaseModel):
 
 
 class GroupCreate(GroupBase):
+    branch_id: int  # Groups must belong to a specific branch
     course_id: int
-    learning_center_id: int
+    learning_center_id: int  # Keep for compatibility
     teacher_id: Optional[int] = None
+
 
 class GroupUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=100)
@@ -36,14 +38,16 @@ class GroupUpdate(BaseModel):
     schedule_days: Optional[str] = Field(None, max_length=20)
     start_time: Optional[time] = None
     end_time: Optional[time] = None
-    manager_id: Optional[int] = None
+    branch_id: Optional[int] = None  # Allow moving group to different branch
+    teacher_id: Optional[int] = None
 
 
 class GroupInDB(GroupBase):
     id: int
+    branch_id: int
     course_id: int
     learning_center_id: int
-    manager_id: Optional[int]
+    teacher_id: Optional[int]
     created_at: datetime
     updated_at: datetime
 
@@ -55,19 +59,25 @@ class StudentBasicInfo(BaseModel):
     id: int
     full_name: str
     phone_number: str
-    proficiency_level: str
 
 
-class ManagerInfo(BaseModel):
+class TeacherInfo(BaseModel):
     id: int
     full_name: str
     phone_number: str
+    subject_specialization: Optional[str]
 
 
 class CourseInfo(BaseModel):
     id: int
     name: str
     level: str
+
+
+class BranchInfo(BaseModel):
+    id: int
+    name: str
+    address: str
 
 
 class GroupResponse(BaseModel):
@@ -77,6 +87,7 @@ class GroupResponse(BaseModel):
     max_capacity: int
     current_capacity: int
     available_spots: int
+    capacity_percentage: float
     is_active: bool
     is_full: bool
     schedule_days: Optional[str]
@@ -84,17 +95,17 @@ class GroupResponse(BaseModel):
     end_time: Optional[time]
 
     # Related data
+    branch: BranchInfo  # Branch information
     course: CourseInfo
-    manager: Optional[ManagerInfo] = None
+    teacher: Optional[TeacherInfo] = None
     students: List[StudentBasicInfo] = []
+
+    # Location info
+    full_location: str  # Branch name
+    branch_address: str
 
     class Config:
         from_attributes = True
-
-
-class GroupWithStudentsResponse(GroupResponse):
-    # Extended version with full student details
-    students: List[StudentBasicInfo] = []
 
 
 class GroupListResponse(BaseModel):
@@ -116,16 +127,6 @@ class AddStudentToGroupRequest(BaseModel):
         return v
 
 
-class RemoveStudentFromGroupRequest(BaseModel):
-    student_id: int
-
-    @validator('student_id')
-    def validate_student_id(cls, v):
-        if v <= 0:
-            raise ValueError('Student ID must be positive')
-        return v
-
-
 class BulkStudentOperationRequest(BaseModel):
     student_ids: List[int] = Field(..., min_items=1)
 
@@ -138,32 +139,50 @@ class BulkStudentOperationRequest(BaseModel):
         return v
 
 
+# Group transfer between branches
+class TransferGroupToBranchRequest(BaseModel):
+    group_id: int
+    target_branch_id: int
+    reason: Optional[str] = None
+
+
 # Group filtering and search
 class GroupFilters(BaseModel):
     search: Optional[str] = None  # Search in name
+    branch_id: Optional[int] = None  # Filter by branch
     course_id: Optional[int] = None
-    manager_id: Optional[int] = None
+    teacher_id: Optional[int] = None
+    learning_center_id: Optional[int] = None  # Keep for compatibility
     is_active: Optional[bool] = True
     has_capacity: Optional[bool] = None  # Groups with available spots
     schedule_day: Optional[str] = None  # Filter by specific day
+
+
+# Branch-specific group management
+class BranchGroupSummary(BaseModel):
+    branch_id: int
+    branch_name: str
+    total_groups: int
+    active_groups: int
+    total_students: int
+    total_capacity: int
+    utilization_rate: float
+    groups_at_capacity: int
+    available_spots: int
+
+
+class BranchGroupsResponse(BaseModel):
+    branch: BranchInfo
+    groups: List[GroupResponse]
+    summary: BranchGroupSummary
 
 
 # Group statistics
 class GroupStatistics(BaseModel):
     group_id: int
     group_name: str
+    branch_name: str
     total_students: int
     active_students: int
     average_progress: float
-    completion_rate: float
-    total_points: int
-    average_points_per_student: float
-
-
-class GroupProgressSummary(BaseModel):
-    group_id: int
-    group_name: str
-    course_name: str
-    students_progress: List[dict]  # Will contain student progress details
-    group_average: float
     completion_rate: float

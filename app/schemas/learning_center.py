@@ -1,42 +1,67 @@
 from typing import Optional, List
 from pydantic import BaseModel, validator, Field
 from datetime import datetime, time
+from app.schemas.branch import BranchResponse
 
 
 class LearningCenterBase(BaseModel):
     name: str = Field(..., min_length=2, max_length=100)
-    location: str = Field(default="uz", max_length=10)  # Country code
+    description: Optional[str] = None
+    country_code: str = Field(default="uz", max_length=10)  # ISO country code
     timezone: str = Field(default="Asia/Tashkent", max_length=50)
-    phone_number: Optional[str] = Field(None, max_length=20)
-    address: Optional[str] = Field(None, max_length=255)
+    main_phone: Optional[str] = Field(None, max_length=20)
+    website: Optional[str] = Field(None, max_length=200)
     is_active: bool = True
     leaderboard_reset_time: time = Field(default=time(0, 0))  # Default 00:00
+    logo_url: Optional[str] = Field(None, max_length=500)
+    brand_color: Optional[str] = Field(None, max_length=7, min_length=7)  # Hex color #FFFFFF
 
-    @validator('location')
-    def validate_location(cls, v):
-        # Add more country codes as needed
-        allowed_locations = ["uz", "kg", "kz", "tj", "tm", "af", "ru", "tr"]
-        if v not in allowed_locations:
-            raise ValueError(f'Location must be one of: {", ".join(allowed_locations)}')
-        return v
+    # LIMITS
+    max_branches: int = Field(default=5, ge=1, le=50)  # 1-50 branches allowed
+    max_students: int = Field(default=1000, ge=10, le=100000)  # 10-100,000 students allowed
+
+    @validator('country_code')
+    def validate_country_code(cls, v):
+        allowed_codes = ["uz", "kg", "kz", "tj", "tm", "af", "ru", "tr", "us", "uk"]
+        if v.lower() not in allowed_codes:
+            raise ValueError(f'Country code must be one of: {", ".join(allowed_codes)}')
+        return v.lower()
 
     @validator('timezone')
     def validate_timezone(cls, v):
-        # Common timezones for the region
         allowed_timezones = [
             "Asia/Tashkent", "Asia/Almaty", "Asia/Bishkek",
             "Asia/Dushanbe", "Asia/Ashgabat", "Asia/Kabul",
-            "Europe/Moscow", "Europe/Istanbul", "UTC"
+            "Europe/Moscow", "Europe/Istanbul", "UTC",
+            "America/New_York", "America/Los_Angeles", "Europe/London"
         ]
         if v not in allowed_timezones:
             raise ValueError(f'Timezone must be one of: {", ".join(allowed_timezones)}')
         return v
 
-    @validator('phone_number')
+    @validator('main_phone')
     def validate_phone(cls, v):
         if v is not None:
             if not v.startswith('+') and not v.isdigit():
                 raise ValueError('Phone number must start with + or contain only digits')
+        return v
+
+    @validator('brand_color')
+    def validate_brand_color(cls, v):
+        if v is not None:
+            if not v.startswith('#') or len(v) != 7:
+                raise ValueError('Brand color must be in hex format #FFFFFF')
+            try:
+                int(v[1:], 16)  # Validate hex
+            except ValueError:
+                raise ValueError('Invalid hex color code')
+        return v
+
+    @validator('website')
+    def validate_website(cls, v):
+        if v is not None:
+            if not (v.startswith('http://') or v.startswith('https://')):
+                raise ValueError('Website must start with http:// or https://')
         return v
 
 
@@ -46,18 +71,21 @@ class LearningCenterCreate(LearningCenterBase):
 
 class LearningCenterUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=100)
-    location: Optional[str] = Field(None, max_length=10)
+    description: Optional[str] = None
+    country_code: Optional[str] = Field(None, max_length=10)
     timezone: Optional[str] = Field(None, max_length=50)
-    phone_number: Optional[str] = Field(None, max_length=20)
-    address: Optional[str] = Field(None, max_length=255)
+    main_phone: Optional[str] = Field(None, max_length=20)
+    website: Optional[str] = Field(None, max_length=200)
     is_active: Optional[bool] = None
     leaderboard_reset_time: Optional[time] = None
+    logo_url: Optional[str] = Field(None, max_length=500)
+    brand_color: Optional[str] = Field(None, max_length=7, min_length=7)
+    max_branches: Optional[int] = Field(None, ge=1, le=50)
+    max_students: Optional[int] = Field(None, ge=10, le=100000)
 
-    @validator('phone_number')
-    def validate_phone(cls, v):
-        if v is not None:
-            if not v.startswith('+') and not v.isdigit():
-                raise ValueError('Phone number must start with + or contain only digits')
+    @validator('max_branches', 'max_students')
+    def validate_limits_not_below_current(cls, v, values, field):
+        # NOTE: This validation should be done in the service layer where we have access to current data
         return v
 
 
@@ -71,31 +99,43 @@ class LearningCenterInDB(LearningCenterBase):
 
 
 class LearningCenterStats(BaseModel):
-    total_users: int = 0
+    total_branches: int = 0
+    active_branches: int = 0
     total_students: int = 0
-    total_parents: int = 0
-    total_staff: int = 0
-    total_courses: int = 0
-    total_groups: int = 0
-    active_groups: int = 0
-    total_lessons: int = 0
-    total_words: int = 0
+    max_branches: int = 0
+    max_students: int = 0
+    branches_remaining: int = 0
+    students_remaining: int = 0
+    branch_utilization: float = 0.0
+    student_utilization: float = 0.0
+    can_add_branch: bool = True
+    can_add_student: bool = True
 
 
 class LearningCenterResponse(BaseModel):
     id: int
     name: str
-    location: str
+    description: Optional[str]
+    country_code: str
     timezone: str
-    phone_number: Optional[str]
-    address: Optional[str]
+    main_phone: Optional[str]
+    website: Optional[str]
     is_active: bool
     leaderboard_reset_time: time
+    logo_url: Optional[str]
+    brand_color: Optional[str]
+    max_branches: int
+    max_students: int
     created_at: datetime
     stats: Optional[LearningCenterStats] = None
 
     class Config:
         from_attributes = True
+
+
+class LearningCenterWithBranches(LearningCenterResponse):
+    """Learning center response with branches included"""
+    branches: List[BranchResponse] = []
 
 
 class LearningCenterListResponse(BaseModel):
@@ -104,6 +144,39 @@ class LearningCenterListResponse(BaseModel):
     page: int
     per_page: int
     total_pages: int
+
+
+# Limit validation responses
+class LimitCheckResponse(BaseModel):
+    success: bool
+    message: str
+    current_count: int
+    limit: int
+    remaining: int
+    can_proceed: bool
+
+
+class BranchLimitCheck(LimitCheckResponse):
+    """Check if can add branch"""
+    pass
+
+
+class StudentLimitCheck(LimitCheckResponse):
+    """Check if can add student"""
+    pass
+
+
+# Limit increase requests
+class IncreaseLimitRequest(BaseModel):
+    new_max_branches: Optional[int] = Field(None, ge=1, le=50)
+    new_max_students: Optional[int] = Field(None, ge=10, le=100000)
+    reason: Optional[str] = None
+
+    @validator('new_max_branches', 'new_max_students')
+    def validate_increase_only(cls, v):
+        if v is not None and v <= 0:
+            raise ValueError('New limit must be positive')
+        return v
 
 
 # CEO management schemas
@@ -125,63 +198,47 @@ class LearningCenterWithCEO(LearningCenterResponse):
     ceo: Optional[CEOInfo] = None
 
 
-# Analytics and reporting
+# Analytics
 class LearningCenterAnalytics(BaseModel):
     center_id: int
     center_name: str
-    date_range: dict  # start_date and end_date
 
-    # User metrics
-    new_students_count: int
-    active_students_count: int
-    student_retention_rate: float
+    # Utilization metrics
+    branch_utilization: float
+    student_utilization: float
 
-    # Learning metrics
-    lessons_completed: int
-    average_lesson_completion_rate: float
-    total_practice_sessions: int
+    # Growth tracking
+    branches_added_this_month: int = 0
+    students_added_this_month: int = 0
 
-    # Engagement metrics
-    daily_active_users: List[dict]  # Daily activity data
-    peak_usage_hours: List[int]
-    average_session_duration: int
+    # Capacity planning
+    projected_branch_needs: int = 0
+    projected_student_capacity_needed: int = 0
 
-    # Performance metrics
-    top_performers: List[dict]
-    struggling_students: List[dict]
-    course_completion_rates: dict
-
-    # Badge and gamification metrics
-    badges_awarded: int
-    leaderboard_participation_rate: float
+    # Recommendations
+    recommendations: List[str] = []
 
 
 class LearningCenterFilters(BaseModel):
     search: Optional[str] = None  # Search in name
-    location: Optional[str] = None
+    country_code: Optional[str] = None
     is_active: Optional[bool] = True
+    near_limit: Optional[bool] = None  # Centers near their limits
     timezone: Optional[str] = None
 
 
-# Settings management
+# Settings management (simplified)
 class LearningCenterSettings(BaseModel):
     # Gamification settings
     points_per_word: int = Field(default=10, ge=1, le=100)
     points_per_lesson: int = Field(default=50, ge=10, le=1000)
-    points_per_module: int = Field(default=200, ge=50, le=5000)
-
-    # Weeklist algorithm settings
-    max_weekly_words: int = Field(default=50, ge=10, le=100)
-    difficulty_multiplier: float = Field(default=1.2, ge=1.0, le=3.0)
 
     # Leaderboard settings
     leaderboard_reset_time: time = Field(default=time(0, 0))
     show_position_changes: bool = True
-    max_leaderboard_entries: int = Field(default=100, ge=10, le=500)
 
     # Notification settings
     daily_reminder_enabled: bool = True
-    weekly_report_enabled: bool = True
     achievement_notifications: bool = True
 
 
