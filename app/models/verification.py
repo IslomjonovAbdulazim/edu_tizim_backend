@@ -11,7 +11,7 @@ class VerificationCode(BaseModel):
     phone_number = Column(String(20), nullable=False, index=True)
 
     # Verification details
-    code = Column(String(6), nullable=False)  # 6-digit code
+    code = Column(String(6), nullable=False)
     is_used = Column(Boolean, default=False, nullable=False)
     is_expired = Column(Boolean, default=False, nullable=False)
 
@@ -24,12 +24,12 @@ class VerificationCode(BaseModel):
     max_attempts = Column(Integer, default=3, nullable=False)
 
     def __str__(self):
-        return f"VerificationCode({self.phone_number}, {self.code})"
+        return f"VerificationCode({self.phone_number}, expires: {self.expires_at})"
 
     @classmethod
-    def create_new(cls, telegram_id: int, phone_number: str, code: str, expires_in_minutes: int = 10):
-        """Create a new verification code"""
-        expires_at = datetime.utcnow() + timedelta(minutes=expires_in_minutes)
+    def create_new(cls, telegram_id: int, phone_number: str, code: str):
+        """Create a new verification code with 10 minute expiry"""
+        expires_at = datetime.utcnow() + timedelta(minutes=10)
         return cls(
             telegram_id=telegram_id,
             phone_number=phone_number,
@@ -39,17 +39,16 @@ class VerificationCode(BaseModel):
 
     @property
     def is_valid(self):
-        """Check if code is still valid"""
-        now = datetime.utcnow()
+        """Check if code is still valid for use"""
         return (
             not self.is_used and
             not self.is_expired and
-            now < self.expires_at and
+            datetime.utcnow() < self.expires_at and
             self.verification_attempts < self.max_attempts
         )
 
-    def verify_code(self, provided_code: str) -> bool:
-        """Verify the provided code"""
+    def try_verify(self, provided_code: str) -> bool:
+        """Attempt to verify the provided code"""
         if not self.is_valid:
             return False
 
@@ -60,8 +59,13 @@ class VerificationCode(BaseModel):
             self.used_at = datetime.utcnow()
             return True
 
-        # Mark as expired if max attempts reached
+        # Auto-expire if max attempts reached
         if self.verification_attempts >= self.max_attempts:
             self.is_expired = True
 
         return False
+
+    @property
+    def attempts_remaining(self):
+        """Get remaining verification attempts"""
+        return max(0, self.max_attempts - self.verification_attempts)

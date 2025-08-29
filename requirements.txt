@@ -42,3 +42,5 @@ python-dateutil==2.8.2
 
 # Utilities
 typing-extensions==4.8.0
+
+python-telegram-bot==20.7

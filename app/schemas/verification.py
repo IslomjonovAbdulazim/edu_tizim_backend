@@ -1,41 +1,13 @@
-from pydantic import BaseModel, validator
+from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 from .base import BaseSchema, TimestampMixin
 
 
-# Verification Code Schemas
-class VerificationCodeCreate(BaseSchema):
-    telegram_id: int
-    phone_number: str
-    code: str
-    expires_in_minutes: int = 10
-
-
-class VerificationCodeResponse(BaseSchema, TimestampMixin):
-    telegram_id: int
-    phone_number: str
-    code: str
-    is_used: bool
-    is_expired: bool
-    expires_at: datetime
-    used_at: Optional[datetime]
-    verification_attempts: int
-    max_attempts: int
-    is_valid: bool = False
-
-
-# Verification Request/Response
+# Core Verification Requests
 class SendVerificationRequest(BaseModel):
     telegram_id: int
     phone_number: str
-
-
-class SendVerificationResponse(BaseModel):
-    success: bool
-    message: str
-    expires_at: datetime
-    attempts_remaining: int = 3
 
 
 class VerifyCodeRequest(BaseModel):
@@ -44,15 +16,32 @@ class VerifyCodeRequest(BaseModel):
     code: str
 
 
+# Core Verification Responses
+class SendVerificationResponse(BaseModel):
+    success: bool
+    message: str
+    expires_at: datetime
+    attempts_remaining: int = 3
+
+
 class VerifyCodeResponse(BaseModel):
     success: bool
     message: str
     user_verified: bool = False
     attempts_remaining: int = 0
+    user_data: Optional[dict] = None  # User info if verification successful
 
-    @validator('attempts_remaining')
-    def validate_attempts(cls, v, values):
-        if not values.get('success', False) and v <= 0:
-            # If verification failed and no attempts remaining
-            values['message'] = "Maximum verification attempts exceeded. Please request a new code."
-        return v
+
+# Status Check (for telegram bot)
+class VerificationStatusResponse(BaseModel):
+    has_valid_code: bool
+    code: Optional[str] = None  # Return actual code for telegram bot
+    expires_at: Optional[datetime] = None
+    attempts_remaining: int = 0
+
+
+# Rate Limit Check
+class RateLimitResponse(BaseModel):
+    can_send: bool
+    seconds_remaining: int = 0
+    message: str
