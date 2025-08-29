@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, Integer, ForeignKey, BigInteger
+from sqlalchemy import Column, String, Boolean, Integer, ForeignKey, BigInteger, UniqueConstraint
 from sqlalchemy.orm import relationship
 from app.models.base import BaseModel
 from app.constants.roles import UserRole
@@ -9,7 +9,7 @@ class User(BaseModel):
 
     # Basic Info
     full_name = Column(String(100), nullable=False)
-    phone_number = Column(String(20), nullable=False, unique=True, index=True)
+    phone_number = Column(String(20), nullable=False, index=True)  # Removed unique=True
     telegram_id = Column(BigInteger, nullable=False, unique=True, index=True)
     role = Column(String(50), nullable=False, default=UserRole.STUDENT)
     is_active = Column(Boolean, default=True, nullable=False)
@@ -26,10 +26,19 @@ class User(BaseModel):
     # For parents
     parent_profile = relationship("Parent", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
+    # For teachers
+    teacher_profile = relationship("Teacher", back_populates="user", uselist=False, cascade="all, delete-orphan")
+
     # Progress and gamification
     progress_records = relationship("Progress", back_populates="user", cascade="all, delete-orphan")
     user_badges = relationship("UserBadge", back_populates="user", cascade="all, delete-orphan")
     weekly_lists = relationship("WeekList", back_populates="user", cascade="all, delete-orphan")
+
+    # Composite unique constraint: phone_number + learning_center_id must be unique
+    __table_args__ = (
+        UniqueConstraint('phone_number', 'learning_center_id',
+                        name='uq_user_phone_learning_center'),
+    )
 
     def __str__(self):
         return f"User(full_name='{self.full_name}', role='{self.role}')"

@@ -21,7 +21,7 @@ class GroupRepository(BaseRepository[Group]):
 
         return query.options(
             joinedload(Group.course),
-            joinedload(Group.manager),
+            joinedload(Group.teacher),
             joinedload(Group.students)
         ).all()
 
@@ -34,20 +34,37 @@ class GroupRepository(BaseRepository[Group]):
 
         return query.options(
             joinedload(Group.course),
-            joinedload(Group.manager),
+            joinedload(Group.teacher),
             joinedload(Group.students)
         ).all()
 
-    def get_by_manager(self, db: Session, manager_id: int, active_only: bool = True) -> List[Group]:
-        """Get groups managed by a specific manager"""
-        query = db.query(Group).filter(Group.manager_id == manager_id)
+    def get_by_teacher(self, db: Session, teacher_id: int, active_only: bool = True) -> List[Group]:
+        """Get groups managed by a specific teacher"""
+        query = db.query(Group).filter(Group.teacher_id == teacher_id)
 
         if active_only:
             query = query.filter(Group.is_active == True)
 
         return query.options(
             joinedload(Group.course),
-            joinedload(Group.manager),
+            joinedload(Group.teacher),
+            joinedload(Group.students)
+        ).all()
+
+    def get_groups_without_teachers(self, db: Session, learning_center_id: Optional[int] = None) -> List[Group]:
+        """Get groups that don't have assigned teachers"""
+        query = db.query(Group).filter(
+            and_(
+                Group.teacher_id.is_(None),
+                Group.is_active == True
+            )
+        )
+
+        if learning_center_id:
+            query = query.filter(Group.learning_center_id == learning_center_id)
+
+        return query.options(
+            joinedload(Group.course),
             joinedload(Group.students)
         ).all()
 
@@ -70,7 +87,7 @@ class GroupRepository(BaseRepository[Group]):
 
         return query.options(
             joinedload(Group.course),
-            joinedload(Group.manager),
+            joinedload(Group.teacher),
             joinedload(Group.students)
         ).all()
 
@@ -93,7 +110,7 @@ class GroupRepository(BaseRepository[Group]):
 
         return query.options(
             joinedload(Group.course),
-            joinedload(Group.manager),
+            joinedload(Group.teacher),
             joinedload(Group.students)
         ).all()
 
@@ -103,7 +120,7 @@ class GroupRepository(BaseRepository[Group]):
             Student.id == student_id
         ).options(
             joinedload(Group.course),
-            joinedload(Group.manager)
+            joinedload(Group.teacher)
         ).all()
 
     def add_student_to_group(self, db: Session, group_id: int, student_id: int) -> bool:
@@ -208,7 +225,7 @@ class GroupRepository(BaseRepository[Group]):
             search_term: str,
             learning_center_id: Optional[int] = None,
             course_id: Optional[int] = None,
-            manager_id: Optional[int] = None,
+            teacher_id: Optional[int] = None,
             has_capacity: Optional[bool] = None,
             skip: int = 0,
             limit: int = 100
@@ -227,8 +244,8 @@ class GroupRepository(BaseRepository[Group]):
         if course_id:
             query = query.filter(Group.course_id == course_id)
 
-        if manager_id:
-            query = query.filter(Group.manager_id == manager_id)
+        if teacher_id:
+            query = query.filter(Group.teacher_id == teacher_id)
 
         if has_capacity is not None:
             if has_capacity:
@@ -254,7 +271,7 @@ class GroupRepository(BaseRepository[Group]):
 
         return query.filter(Group.is_active == True).options(
             joinedload(Group.course),
-            joinedload(Group.manager),
+            joinedload(Group.teacher),
             joinedload(Group.students)
         ).offset(skip).limit(limit).all()
 
@@ -268,17 +285,20 @@ class GroupRepository(BaseRepository[Group]):
 
         return query.filter(Group.is_active == True).options(
             joinedload(Group.course),
-            joinedload(Group.manager),
+            joinedload(Group.teacher),
             joinedload(Group.students)
         ).all()
 
-    def assign_manager(self, db: Session, group_id: int, manager_id: int) -> Optional[Group]:
-        """Assign a manager to a group"""
+    def assign_teacher(self, db: Session, group_id: int, teacher_id: int) -> Optional[Group]:
+        """Assign a teacher to a group"""
         group = self.get(db, group_id)
-        manager = db.query(User).filter(User.id == manager_id).first()
 
-        if group and manager:
-            group.manager_id = manager_id
+        # Verify teacher exists
+        from app.models.teacher import Teacher
+        teacher = db.query(Teacher).filter(Teacher.id == teacher_id).first()
+
+        if group and teacher:
+            group.teacher_id = teacher_id
             db.commit()
             db.refresh(group)
 
@@ -294,9 +314,9 @@ class GroupRepository(BaseRepository[Group]):
         total_groups = base_query.count()
         active_groups = base_query.filter(Group.is_active == True).count()
 
-        # Groups with/without managers
-        groups_with_managers = base_query.filter(Group.manager_id.isnot(None)).count()
-        groups_without_managers = total_groups - groups_with_managers
+        # Groups with/without teachers
+        groups_with_teachers = base_query.filter(Group.teacher_id.isnot(None)).count()
+        groups_without_teachers = total_groups - groups_with_teachers
 
         # Capacity statistics
         subquery = db.query(
@@ -318,8 +338,8 @@ class GroupRepository(BaseRepository[Group]):
             "total_groups": total_groups,
             "active_groups": active_groups,
             "inactive_groups": total_groups - active_groups,
-            "groups_with_managers": groups_with_managers,
-            "groups_without_managers": groups_without_managers,
+            "groups_with_teachers": groups_with_teachers,
+            "groups_without_teachers": groups_without_teachers,
             "full_groups": full_groups,
             "groups_with_capacity": active_groups - full_groups,
             "total_capacity": total_capacity,

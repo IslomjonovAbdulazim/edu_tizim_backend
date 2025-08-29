@@ -32,17 +32,12 @@ class Student(BaseModel):
     emergency_contact = Column(String(20), nullable=True)
     notes = Column(String(500), nullable=True)  # Admin notes about student
 
-    # Language learning info
-    native_language = Column(String(10), default="uz", nullable=False)  # Language code
-    learning_language = Column(String(10), default="en", nullable=False)  # Language code
-    proficiency_level = Column(String(20), default="beginner", nullable=False)  # beginner, intermediate, advanced
-
     # Relationships
     groups = relationship("Group", secondary=student_group_association, back_populates="students")
     parents = relationship("Parent", secondary=parent_student_association, back_populates="students")
 
     def __str__(self):
-        return f"Student(user='{self.user.full_name}', level='{self.proficiency_level}')"
+        return f"Student(user='{self.user.full_name}')"
 
     @property
     def full_name(self):

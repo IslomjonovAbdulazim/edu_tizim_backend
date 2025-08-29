@@ -22,8 +22,13 @@ from .group_repository import GroupRepository
 # Progress and gamification repositories
 from .progress_repository import ProgressRepository
 from .badge_repository import BadgeRepository
-from .weeklist_repository import WeekListRepository, WeekListWordRepository
-
+from .weaklist_repository import WeekListRepository, WeekListWordRepository
+# User management repositories
+from .user_repository import UserRepository
+from .student_repository import StudentRepository
+from .parent_repository import ParentRepository
+from .teacher_repository import TeacherRepository
+from .verification_repository import VerificationCodeRepository
 # Leaderboard repository
 from .daily_leaderboard_repository import DailyLeaderboardRepository
 

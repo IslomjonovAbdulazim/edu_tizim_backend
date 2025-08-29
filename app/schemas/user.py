@@ -23,6 +23,18 @@ class UserCreate(UserBase):
             raise ValueError('Phone number must start with + or contain only digits')
         return v
 
+    class Config:
+        schema_extra = {
+            "example": {
+                "full_name": "John Doe",
+                "phone_number": "+998901234567",
+                "telegram_id": 123456789,
+                "role": "student",
+                "learning_center_id": 1,
+                "is_active": True
+            }
+        }
+
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = Field(None, min_length=2, max_length=100)
@@ -65,12 +77,32 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 
+# Phone number validation with learning center context
+class PhoneNumberValidationRequest(BaseModel):
+    phone_number: str = Field(..., min_length=10, max_length=20)
+    learning_center_id: int
+    exclude_user_id: Optional[int] = None  # For updates
+
+    @validator('phone_number')
+    def validate_phone(cls, v):
+        if not v.startswith('+') and not v.isdigit():
+            raise ValueError('Phone number must start with + or contain only digits')
+        return v
+
+
+class PhoneNumberValidationResponse(BaseModel):
+    is_available: bool
+    message: str
+    existing_user: Optional[UserResponse] = None
+
+
 # Staff creation schemas (CEO creates staff)
 class StaffCreateRequest(BaseModel):
     full_name: str = Field(..., min_length=2, max_length=100)
     phone_number: str = Field(..., min_length=10, max_length=20)
     telegram_id: int
     role: UserRole
+    learning_center_id: int  # Staff must be assigned to the CEO's learning center
 
     @validator('role')
     def validate_staff_role(cls, v):
@@ -101,6 +133,33 @@ class UserProfile(UserResponse):
     badge_count: Optional[int] = 0
     completed_lessons: Optional[int] = 0
     current_streak: Optional[int] = 0
+    learning_center_name: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+# User search with learning center filtering
+class UserSearchFilters(BaseModel):
+    search: Optional[str] = None
+    learning_center_id: Optional[int] = None
+    role: Optional[UserRole] = None
+    is_active: Optional[bool] = True
+    is_verified: Optional[bool] = None
+
+
+# Cross learning center user lookup (for admin purposes)
+class CrossCenterUserLookup(BaseModel):
+    phone_number: str = Field(..., min_length=10, max_length=20)
+
+    @validator('phone_number')
+    def validate_phone(cls, v):
+        if not v.startswith('+') and not v.isdigit():
+            raise ValueError('Phone number must start with + or contain only digits')
+        return v
+
+
+class CrossCenterUserResponse(BaseModel):
+    users: List[UserResponse]
+    total_centers: int
+    phone_number: str

@@ -26,8 +26,7 @@ class GroupBase(BaseModel):
 class GroupCreate(GroupBase):
     course_id: int
     learning_center_id: int
-    manager_id: Optional[int] = None
-
+    teacher_id: Optional[int] = None
 
 class GroupUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=100)

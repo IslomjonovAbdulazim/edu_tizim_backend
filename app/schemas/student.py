@@ -9,16 +9,6 @@ class StudentBase(BaseModel):
     grade_level: Optional[str] = Field(None, max_length=20)
     emergency_contact: Optional[str] = Field(None, max_length=20)
     notes: Optional[str] = Field(None, max_length=500)
-    native_language: str = Field(default="uz", max_length=10)
-    learning_language: str = Field(default="en", max_length=10)
-    proficiency_level: str = Field(default="beginner", max_length=20)
-
-    @validator('proficiency_level')
-    def validate_proficiency(cls, v):
-        allowed_levels = ["beginner", "elementary", "intermediate", "upper-intermediate", "advanced", "proficient"]
-        if v not in allowed_levels:
-            raise ValueError(f'Proficiency level must be one of: {", ".join(allowed_levels)}')
-        return v
 
 
 class StudentCreate(StudentBase):
@@ -55,9 +45,6 @@ class StudentResponse(BaseModel):
     date_of_birth: Optional[date]
     grade_level: Optional[str]
     emergency_contact: Optional[str]
-    native_language: str
-    learning_language: str
-    proficiency_level: str
     total_points: int = 0
 
     # Group information
@@ -99,7 +86,5 @@ class RemoveStudentFromGroupRequest(BaseModel):
 # Student search/filter parameters
 class StudentFilters(BaseModel):
     search: Optional[str] = None  # Search in name
-    proficiency_level: Optional[str] = None
-    learning_language: Optional[str] = None
     group_id: Optional[int] = None
     is_active: Optional[bool] = True

@@ -14,15 +14,38 @@ class UserRepository(BaseRepository[User]):
         """Get user by Telegram ID"""
         return db.query(User).filter(User.telegram_id == telegram_id).first()
 
-    def get_by_phone_number(self, db: Session, phone_number: str) -> Optional[User]:
-        """Get user by phone number"""
-        return db.query(User).filter(User.phone_number == phone_number).first()
-
-    def get_by_telegram_and_phone(self, db: Session, telegram_id: int, phone_number: str) -> Optional[User]:
-        """Get user by both Telegram ID and phone number"""
+    def get_by_phone_number(self, db: Session, phone_number: str, learning_center_id: int) -> Optional[User]:
+        """Get user by phone number within a specific learning center"""
         return db.query(User).filter(
-            and_(User.telegram_id == telegram_id, User.phone_number == phone_number)
+            and_(
+                User.phone_number == phone_number,
+                User.learning_center_id == learning_center_id
+            )
         ).first()
+
+    def get_by_phone_number_global(self, db: Session, phone_number: str) -> List[User]:
+        """Get all users with this phone number across all learning centers"""
+        return db.query(User).filter(User.phone_number == phone_number).all()
+
+    def get_by_telegram_and_phone(self, db: Session, telegram_id: int, phone_number: str, learning_center_id: int) -> \
+    Optional[User]:
+        """Get user by both Telegram ID and phone number within learning center"""
+        return db.query(User).filter(
+            and_(
+                User.telegram_id == telegram_id,
+                User.phone_number == phone_number,
+                User.learning_center_id == learning_center_id
+            )
+        ).first()
+
+    def phone_exists_in_center(self, db: Session, phone_number: str, learning_center_id: int) -> bool:
+        """Check if phone number already exists in the learning center"""
+        return db.query(User).filter(
+            and_(
+                User.phone_number == phone_number,
+                User.learning_center_id == learning_center_id
+            )
+        ).first() is not None
 
     def get_by_learning_center(self, db: Session, learning_center_id: int, skip: int = 0, limit: int = 100) -> List[
         User]:
@@ -105,6 +128,10 @@ class UserRepository(BaseRepository[User]):
         """Update user's phone number"""
         user = self.get(db, user_id)
         if user:
+            # Check if new phone already exists in the same learning center
+            if self.phone_exists_in_center(db, new_phone, user.learning_center_id):
+                raise ValueError("Phone number already exists in this learning center")
+
             user.phone_number = new_phone
             user.is_verified = False  # Require re-verification with new phone
             db.commit()

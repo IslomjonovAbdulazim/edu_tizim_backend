@@ -1,4 +1,3 @@
-# Import all schema modules for easy access
 from . import auth
 from . import badge
 from . import common
@@ -12,9 +11,10 @@ from . import module
 from . import parent
 from . import progress
 from . import student
+from . import teacher
 from . import user
 from . import verification_code
-from . import weeklist
+from . import weaklist
 from . import word
 
 __all__ = [
@@ -33,6 +33,6 @@ __all__ = [
     "student",
     "user",
     "verification_code",
-    "weeklist",
+    "weaklist.py",
     "word"
 ]

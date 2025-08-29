@@ -25,15 +25,15 @@ class Group(BaseModel):
     course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
     course = relationship("Course", back_populates="groups")
 
-    # Group manager (staff member who manages this group)
-    manager_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    manager = relationship("User", foreign_keys=[manager_id])
+    # Teacher relationship (replaces manager_id)
+    teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=True)
+    teacher = relationship("Teacher", back_populates="groups")
 
     # Relationships
     students = relationship("Student", secondary=student_group_association, back_populates="groups")
 
     def __str__(self):
-        return f"Group(name='{self.name}', course='{self.course.name}')"
+        return f"Group(name='{self.name}', course='{self.course.name}', teacher='{self.teacher.full_name if self.teacher else 'No teacher'}')"
 
     @property
     def current_capacity(self):
@@ -53,3 +53,13 @@ class Group(BaseModel):
     def get_student_names(self):
         """Get list of student names in this group"""
         return [student.full_name for student in self.students]
+
+    @property
+    def teacher_name(self):
+        """Get teacher name or default message"""
+        return self.teacher.full_name if self.teacher else "No teacher assigned"
+
+    @property
+    def has_teacher(self):
+        """Check if group has an assigned teacher"""
+        return self.teacher is not None

@@ -40,26 +40,6 @@ class StudentRepository(BaseRepository[Student]):
             User.learning_center_id == learning_center_id
         ).options(joinedload(Student.user)).offset(skip).limit(limit).all()
 
-    def get_by_proficiency_level(self, db: Session, proficiency_level: str, learning_center_id: Optional[int] = None) -> \
-    List[Student]:
-        """Get students by proficiency level"""
-        query = db.query(Student).filter(Student.proficiency_level == proficiency_level)
-
-        if learning_center_id:
-            query = query.join(User).filter(User.learning_center_id == learning_center_id)
-
-        return query.options(joinedload(Student.user)).all()
-
-    def get_by_learning_language(self, db: Session, learning_language: str, learning_center_id: Optional[int] = None) -> \
-    List[Student]:
-        """Get students by learning language"""
-        query = db.query(Student).filter(Student.learning_language == learning_language)
-
-        if learning_center_id:
-            query = query.join(User).filter(User.learning_center_id == learning_center_id)
-
-        return query.options(joinedload(Student.user)).all()
-
     def get_by_group(self, db: Session, group_id: int) -> List[Student]:
         """Get students in a specific group"""
         return db.query(Student).join(Student.groups).filter(
@@ -107,12 +87,10 @@ class StudentRepository(BaseRepository[Student]):
             db: Session,
             search_term: str,
             learning_center_id: Optional[int] = None,
-            proficiency_level: Optional[str] = None,
-            learning_language: Optional[str] = None,
             skip: int = 0,
             limit: int = 100
     ) -> List[Student]:
-        """Search students by name or phone number with filters"""
+        """Search students by name or phone number"""
         query = db.query(Student).join(User).filter(
             or_(
                 User.full_name.ilike(f"%{search_term}%"),
@@ -122,12 +100,6 @@ class StudentRepository(BaseRepository[Student]):
 
         if learning_center_id:
             query = query.filter(User.learning_center_id == learning_center_id)
-
-        if proficiency_level:
-            query = query.filter(Student.proficiency_level == proficiency_level)
-
-        if learning_language:
-            query = query.filter(Student.learning_language == learning_language)
 
         return query.options(joinedload(Student.user)).offset(skip).limit(limit).all()
 
@@ -161,14 +133,14 @@ class StudentRepository(BaseRepository[Student]):
 
         return query.options(joinedload(Student.user)).all()
 
-    def update_proficiency_level(self, db: Session, student_id: int, new_level: str) -> Optional[Student]:
-        """Update student's proficiency level"""
-        student = self.get(db, student_id)
-        if student:
-            student.proficiency_level = new_level
-            db.commit()
-            db.refresh(student)
-        return student
+    def get_students_by_grade_level(self, db: Session, grade_level: str, learning_center_id: Optional[int] = None) -> List[Student]:
+        """Get students by grade level"""
+        query = db.query(Student).filter(Student.grade_level == grade_level)
+
+        if learning_center_id:
+            query = query.join(User).filter(User.learning_center_id == learning_center_id)
+
+        return query.options(joinedload(Student.user)).all()
 
     def get_student_statistics(self, db: Session, learning_center_id: Optional[int] = None) -> dict:
         """Get comprehensive student statistics"""
@@ -180,15 +152,10 @@ class StudentRepository(BaseRepository[Student]):
         total_students = base_query.count()
         active_students = base_query.filter(User.is_active == True).count()
 
-        # Count by proficiency level
-        proficiency_counts = base_query.with_entities(
-            Student.proficiency_level, func.count(Student.id)
-        ).group_by(Student.proficiency_level).all()
-
-        # Count by learning language
-        language_counts = base_query.with_entities(
-            Student.learning_language, func.count(Student.id)
-        ).group_by(Student.learning_language).all()
+        # Count by grade level
+        grade_counts = base_query.with_entities(
+            Student.grade_level, func.count(Student.id)
+        ).group_by(Student.grade_level).all()
 
         # Students in groups vs without groups
         students_with_groups = base_query.filter(Student.groups.any()).count()
@@ -198,8 +165,7 @@ class StudentRepository(BaseRepository[Student]):
             "total_students": total_students,
             "active_students": active_students,
             "inactive_students": total_students - active_students,
-            "proficiency_distribution": {level: count for level, count in proficiency_counts},
-            "language_distribution": {lang: count for lang, count in language_counts},
+            "grade_distribution": {grade or "unspecified": count for grade, count in grade_counts},
             "students_with_groups": students_with_groups,
             "students_without_groups": students_without_groups,
             "group_participation_rate": (students_with_groups / total_students * 100) if total_students > 0 else 0

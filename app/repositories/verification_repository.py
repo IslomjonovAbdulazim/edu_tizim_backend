@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func, desc
 from datetime import datetime, timedelta
 from app.models.verification_code import VerificationCode
+from app.models.user import User
 from app.repositories.base_repository import BaseRepository
 import random
 import string
@@ -109,6 +110,55 @@ class VerificationCodeRepository(BaseRepository[VerificationCode]):
                 "attempts_remaining": max(0, attempts_remaining),
                 "can_request_new": verification_code.is_expired or attempts_remaining <= 0
             }
+
+    def find_user_by_phone(self, db: Session, phone_number: str, learning_center_id: Optional[int] = None) -> List[
+        User]:
+        """Find users with this phone number, optionally filtered by learning center"""
+        query = db.query(User).filter(User.phone_number == phone_number)
+
+        if learning_center_id:
+            query = query.filter(User.learning_center_id == learning_center_id)
+
+        return query.all()
+
+    def get_verification_context(
+            self,
+            db: Session,
+            telegram_id: int,
+            phone_number: str
+    ) -> Dict[str, Any]:
+        """Get context about verification for this telegram_id/phone combination"""
+
+        # Find existing users with this phone number across all learning centers
+        existing_users = self.find_user_by_phone(db, phone_number)
+
+        # Check if this telegram_id is already associated with any user
+        telegram_user = db.query(User).filter(User.telegram_id == telegram_id).first()
+
+        context = {
+            "phone_number": phone_number,
+            "telegram_id": telegram_id,
+            "existing_users_count": len(existing_users),
+            "existing_users": [
+                {
+                    "user_id": user.id,
+                    "learning_center_id": user.learning_center_id,
+                    "full_name": user.full_name,
+                    "role": user.role,
+                    "is_active": user.is_active
+                }
+                for user in existing_users
+            ],
+            "telegram_already_used": telegram_user is not None,
+            "telegram_user": {
+                "user_id": telegram_user.id,
+                "learning_center_id": telegram_user.learning_center_id,
+                "phone_number": telegram_user.phone_number,
+                "full_name": telegram_user.full_name
+            } if telegram_user else None
+        }
+
+        return context
 
     def get_recent_codes_count(
             self,
