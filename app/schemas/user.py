@@ -1,100 +1,75 @@
-from typing import Optional, List
-from pydantic import BaseModel, Field, validator
-from datetime import datetime
+from pydantic import BaseModel, validator
+from typing import Optional
+from enum import Enum
+from .base import BaseSchema, TimestampMixin
 
-# User roles
-class UserRole:
+
+class UserRole(str, Enum):
     STUDENT = "student"
-    PARENT = "parent"
     TEACHER = "teacher"
-    ADMIN = "admin"
+    PARENT = "parent"
+    CONTENT_MANAGER = "content_manager"
     RECEPTION = "reception"
+    GROUP_MANAGER = "group_manager"
+    ADMIN = "admin"
+    SUPER_ADMIN = "super_admin"
 
-# Base user schemas
-class UserBase(BaseModel):
-    full_name: str = Field(..., min_length=2, max_length=100)
-    phone_number: str = Field(..., min_length=9, max_length=20)
-    telegram_id: int = Field(..., gt=0)
-    role: str = Field(default=UserRole.STUDENT)
-    learning_center_id: int = Field(..., gt=0)
 
-    @validator('phone_number')
-    def validate_phone(cls, v):
-        # Simple phone validation
-        if not (v.startswith('+') or v.isdigit()):
-            raise ValueError('Invalid phone number format')
-        return v
-
-    @validator('role')
-    def validate_role(cls, v):
-        valid_roles = [UserRole.STUDENT, UserRole.PARENT, UserRole.TEACHER, UserRole.ADMIN, UserRole.RECEPTION]
-        if v not in valid_roles:
-            raise ValueError(f'Role must be one of: {", ".join(valid_roles)}')
-        return v
-
-class UserCreate(UserBase):
-    pass
-
-class UserUpdate(BaseModel):
-    full_name: Optional[str] = Field(None, min_length=2, max_length=100)
-    phone_number: Optional[str] = Field(None, min_length=9, max_length=20)
-    is_active: Optional[bool] = None
-    is_verified: Optional[bool] = None
-
-class UserResponse(BaseModel):
-    id: int
+# Base User Schemas
+class UserBase(BaseSchema):
     full_name: str
     phone_number: str
+    role: UserRole = UserRole.STUDENT
+    is_active: bool = True
+
+
+class UserCreate(UserBase):
     telegram_id: int
-    role: str
-    is_active: bool
-    is_verified: bool
     learning_center_id: int
+    branch_id: Optional[int] = None
+
+
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    role: Optional[UserRole] = None
+    is_active: Optional[bool] = None
+    branch_id: Optional[int] = None
+
+
+class UserResponse(UserBase, TimestampMixin):
+    telegram_id: int
+    learning_center_id: int
+    branch_id: Optional[int]
+    is_verified: bool
     total_points: int = 0
-    created_at: datetime
 
-    class Config:
-        from_attributes = True
 
-class UserListResponse(BaseModel):
-    users: List[UserResponse]
-    total: int
-    page: int = 1
-    per_page: int = 20
-    total_pages: int
+class UserWithDetails(UserResponse):
+    """User with additional computed fields"""
+    learning_center_name: Optional[str] = None
+    branch_title: Optional[str] = None
 
-# User with role profiles
-class UserWithProfile(UserResponse):
-    student_profile: Optional[dict] = None
-    parent_profile: Optional[dict] = None
-    teacher_profile: Optional[dict] = None
 
-# User statistics
-class UserStatistics(BaseModel):
+# Login/Auth Schemas
+class LoginRequest(BaseModel):
+    phone_number: str
+    learning_center_id: int
+
+
+class LoginResponse(BaseModel):
+    user: UserResponse
+    verification_required: bool
+    message: str
+
+
+# User Statistics Schema
+class UserStats(BaseModel):
     user_id: int
-    full_name: str
     total_points: int
     lessons_completed: int
-    lessons_in_progress: int
-    average_accuracy: float
-    days_active: int
-    last_activity: Optional[datetime] = None
-
-# Authentication schemas
-class LoginRequest(BaseModel):
-    telegram_id: int = Field(..., gt=0)
-    phone_number: str = Field(..., min_length=9, max_length=20)
-
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    expires_in: int
-    user: UserResponse
-
-# User search and filters
-class UserFilters(BaseModel):
-    role: Optional[str] = None
-    is_active: Optional[bool] = None
-    is_verified: Optional[bool] = None
-    learning_center_id: Optional[int] = None
-    search: Optional[str] = None  # Search in name or phone
+    perfect_lessons: int
+    weaklist_solved: int
+    position_improvements: int
+    current_streak: int
+    badges_count: int

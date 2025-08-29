@@ -1,38 +1,94 @@
-from . import auth
-from . import badge
-from . import common
-from . import course
-from . import daily_leaderboard
-from . import group
-from . import leaderboard
-from . import learning_center
-from . import lesson
-from . import module
-from . import parent
-from . import progress
-from . import student
-from . import teacher
-from . import user
-from . import verification_code
-from . import weaklist
-from . import word
+# Import all schemas for easy access
+from .base import BaseSchema, TimestampMixin, PaginationParams, PaginatedResponse
+
+# User schemas
+from .user import (
+    UserRole, UserBase, UserCreate, UserUpdate, UserResponse, UserWithDetails,
+    LoginRequest, LoginResponse, UserStats
+)
+
+# Learning center & business schemas
+from .learning_center import (
+    LearningCenterBase, LearningCenterCreate, LearningCenterUpdate, LearningCenterResponse,
+    LearningCenterWithStats, BranchBase, BranchCreate, BranchUpdate, BranchResponse,
+    BranchWithStats, PaymentBase, PaymentCreate, PaymentResponse
+)
+
+# Content schemas
+from .content import (
+    CourseBase, CourseCreate, CourseUpdate, CourseResponse, CourseWithModules, CourseWithFullContent,
+    ModuleBase, ModuleCreate, ModuleUpdate, ModuleResponse, ModuleWithLessons, ModuleWithFullContent,
+    LessonBase, LessonCreate, LessonUpdate, LessonResponse, LessonWithWords,
+    WordBase, WordCreate, WordUpdate, WordResponse, WordBulkCreate, WordBulkUpdate
+)
+
+# Learning & progress schemas
+from .learning import (
+    ProgressBase, ProgressCreate, ProgressUpdate, ProgressResponse,
+    QuizSessionBase, QuizSessionCreate, QuizSessionUpdate, QuizSessionResponse,
+    QuizSubmission, QuizResult,
+    WeakWordBase, WeakWordCreate, WeakWordUpdate, WeakWordResponse, WeakWordWithDetails,
+    UserLearningStats, LessonStats
+)
+
+# Gamification schemas
+from .gamification import (
+    LeaderboardType, BadgeCategory,
+    LeaderboardEntryBase, LeaderboardEntryCreate, LeaderboardEntryResponse,
+    UserBadgeBase, UserBadgeCreate, UserBadgeUpdate, UserBadgeResponse,
+    LeaderboardQuery, LeaderboardResponse, BadgeProgress, UserBadgesSummary, GameStats
+)
+
+# Group schemas
+from .group import (
+    GroupBase, GroupCreate, GroupUpdate, GroupResponse, GroupWithDetails,
+    StudentGroupAssignment, StudentGroupBulkAssignment, GroupStudentsList
+)
+
+# Verification schemas
+from .verification import (
+    VerificationCodeCreate, VerificationCodeResponse,
+    SendVerificationRequest, SendVerificationResponse,
+    VerifyCodeRequest, VerifyCodeResponse
+)
 
 __all__ = [
-    "auth",
-    "badge",
-    "common",
-    "course",
-    "daily_leaderboard",
-    "group",
-    "leaderboard",
-    "learning_center",
-    "lesson",
-    "module",
-    "parent",
-    "progress",
-    "student",
-    "user",
-    "verification_code",
-    "weaklist.py",
-    "word"
+    # Base
+    "BaseSchema", "TimestampMixin", "PaginationParams", "PaginatedResponse",
+
+    # User
+    "UserRole", "UserBase", "UserCreate", "UserUpdate", "UserResponse", "UserWithDetails",
+    "LoginRequest", "LoginResponse", "UserStats",
+
+    # Learning center & business
+    "LearningCenterBase", "LearningCenterCreate", "LearningCenterUpdate", "LearningCenterResponse",
+    "LearningCenterWithStats", "BranchBase", "BranchCreate", "BranchUpdate", "BranchResponse",
+    "BranchWithStats", "PaymentBase", "PaymentCreate", "PaymentResponse",
+
+    # Content
+    "CourseBase", "CourseCreate", "CourseUpdate", "CourseResponse", "CourseWithModules",
+    "CourseWithFullContent", "ModuleBase", "ModuleCreate", "ModuleUpdate", "ModuleResponse",
+    "ModuleWithLessons", "ModuleWithFullContent", "LessonBase", "LessonCreate", "LessonUpdate",
+    "LessonResponse", "LessonWithWords", "WordBase", "WordCreate", "WordUpdate", "WordResponse",
+    "WordBulkCreate", "WordBulkUpdate",
+
+    # Learning & progress
+    "ProgressBase", "ProgressCreate", "ProgressUpdate", "ProgressResponse",
+    "QuizSessionBase", "QuizSessionCreate", "QuizSessionUpdate", "QuizSessionResponse",
+    "QuizSubmission", "QuizResult", "WeakWordBase", "WeakWordCreate", "WeakWordUpdate",
+    "WeakWordResponse", "WeakWordWithDetails", "UserLearningStats", "LessonStats",
+
+    # Gamification
+    "LeaderboardType", "BadgeCategory", "LeaderboardEntryBase", "LeaderboardEntryCreate",
+    "LeaderboardEntryResponse", "UserBadgeBase", "UserBadgeCreate", "UserBadgeUpdate",
+    "UserBadgeResponse", "LeaderboardQuery", "LeaderboardResponse", "BadgeProgress",
+    "UserBadgesSummary", "GameStats",
+
+    # Group
+    "GroupBase", "GroupCreate", "GroupUpdate", "GroupResponse", "GroupWithDetails",
+    "StudentGroupAssignment", "StudentGroupBulkAssignment", "GroupStudentsList",
+
+    # Verification
+    "VerificationCodeCreate", "VerificationCodeResponse", "SendVerificationRequest",
+    "SendVerificationResponse", "VerifyCodeRequest", "VerifyCodeResponse"
 ]

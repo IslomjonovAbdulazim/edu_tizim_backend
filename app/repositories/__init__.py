@@ -1,70 +1,149 @@
-# Base repository
-from .base_repository import BaseRepository
+# Import all repositories for easy access
+from .base import BaseRepository
 
-# User management repositories
-from .user_repository import UserRepository
-from .student_repository import StudentRepository
-from .parent_repository import ParentRepository
-from .teacher_repository import TeacherRepository
-from .verification_repository import VerificationCodeRepository
+# User management
+from .user import UserRepository
 
-# Learning center management
-from .learning_center_repository import LearningCenterRepository
-from .branch_repository import BranchRepository
+# Learning center & business
+from .learning_center import (
+    LearningCenterRepository,
+    BranchRepository,
+    PaymentRepository
+)
 
-# Content repositories
-from .course_repository import CourseRepository
-from .module_repository import ModuleRepository
-from .lesson_repository import LessonRepository
-from .word_repository import WordRepository
+# Content management
+from .content import (
+    CourseRepository,
+    ModuleRepository,
+    LessonRepository,
+    WordRepository
+)
+
+# Learning & progress
+from .learning import (
+    ProgressRepository,
+    QuizSessionRepository,
+    WeakWordRepository
+)
+
+# Gamification
+from .gamification import (
+    LeaderboardRepository,
+    BadgeRepository
+)
 
 # Group management
-from .group_repository import GroupRepository
+from .group import GroupRepository
 
-# Progress and gamification repositories
-from .progress_repository import ProgressRepository
-from .badge_repository import BadgeRepository
-from .weaklist_repository import WeakListRepository, WeakListWordRepository
-
-# Leaderboard repository
-from .daily_leaderboard_repository import DailyLeaderboardRepository
-
-# Payment repository
-from .payment_repository import PaymentRepository
+# Verification
+from .verification import VerificationRepository
 
 __all__ = [
     # Base
     "BaseRepository",
 
-    # User management
+    # User
     "UserRepository",
-    "StudentRepository",
-    "ParentRepository",
-    "TeacherRepository",
-    "VerificationCodeRepository",
 
-    # Learning center
+    # Learning center & business
     "LearningCenterRepository",
     "BranchRepository",
+    "PaymentRepository",
 
-    # Content management
+    # Content
     "CourseRepository",
     "ModuleRepository",
     "LessonRepository",
     "WordRepository",
 
-    # Group management
+    # Learning & progress
+    "ProgressRepository",
+    "QuizSessionRepository",
+    "WeakWordRepository",
+
+    # Gamification
+    "LeaderboardRepository",
+    "BadgeRepository",
+
+    # Group
     "GroupRepository",
 
-    # Progress and gamification
-    "ProgressRepository",
-    "BadgeRepository",
-    "WeakListRepository",
-    "WeakListWordRepository",
-
-    # Leaderboard
-    "DailyLeaderboardRepository",
-
-    # Payment system
-    "PaymentRepository",
+    # Verification
+    "VerificationRepository"
 ]
+
+
+# Repository factory class for dependency injection
+class RepositoryFactory:
+    """Factory class to create repository instances with database session"""
+
+    def __init__(self, db_session):
+        self.db = db_session
+
+    @property
+    def user(self) -> UserRepository:
+        return UserRepository(self.db)
+
+    @property
+    def learning_center(self) -> LearningCenterRepository:
+        return LearningCenterRepository(self.db)
+
+    @property
+    def branch(self) -> BranchRepository:
+        return BranchRepository(self.db)
+
+    @property
+    def payment(self) -> PaymentRepository:
+        return PaymentRepository(self.db)
+
+    @property
+    def course(self) -> CourseRepository:
+        return CourseRepository(self.db)
+
+    @property
+    def module(self) -> ModuleRepository:
+        return ModuleRepository(self.db)
+
+    @property
+    def lesson(self) -> LessonRepository:
+        return LessonRepository(self.db)
+
+    @property
+    def word(self) -> WordRepository:
+        return WordRepository(self.db)
+
+    @property
+    def progress(self) -> ProgressRepository:
+        return ProgressRepository(self.db)
+
+    @property
+    def quiz_session(self) -> QuizSessionRepository:
+        return QuizSessionRepository(self.db)
+
+    @property
+    def weak_word(self) -> WeakWordRepository:
+        return WeakWordRepository(self.db)
+
+    @property
+    def leaderboard(self) -> LeaderboardRepository:
+        return LeaderboardRepository(self.db)
+
+    @property
+    def badge(self) -> BadgeRepository:
+        return BadgeRepository(self.db)
+
+    @property
+    def group(self) -> GroupRepository:
+        return GroupRepository(self.db)
+
+    @property
+    def verification(self) -> VerificationRepository:
+        return VerificationRepository(self.db)
+
+# Usage example:
+# from app.repositories import RepositoryFactory
+#
+# def some_service(db: Session):
+#     repos = RepositoryFactory(db)
+#     user = repos.user.get(1)
+#     progress = repos.progress.get_user_progress(user.id)
