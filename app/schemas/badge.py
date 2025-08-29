@@ -1,178 +1,146 @@
 from typing import Optional, List
-from pydantic import BaseModel, validator, Field
+from pydantic import BaseModel, Field
 from datetime import datetime
-from app.constants.badge_types import BadgeType, BadgeCategory
 
 
+# Badge types
+class BadgeType:
+    LESSON_MASTER = "lesson_master"
+    STREAK_HOLDER = "streak_holder"
+    TOP_PERFORMER = "top_performer"
+    CONSISTENT_LEARNER = "consistent_learner"
+    WORD_COLLECTOR = "word_collector"
+    PERFECT_SCORE = "perfect_score"
+    FAST_LEARNER = "fast_learner"
+    WEEKLY_CHAMPION = "weekly_champion"
+
+
+# Base badge schemas
 class BadgeBase(BaseModel):
-    badge_type: BadgeType
+    user_id: int = Field(..., gt=0)
+    badge_type: str
     level: int = Field(default=1, ge=1)
     count: int = Field(default=1, ge=1)
-    description: Optional[str] = Field(None, max_length=255)
-    context_data: Optional[str] = None  # JSON string
-    is_active: bool = True
-
-
-class BadgeCreate(BaseModel):
-    user_id: int
-    badge_type: BadgeType
-    level: int = Field(default=1, ge=1)
-    count: int = Field(default=1, ge=1)
-    description: Optional[str] = Field(None, max_length=255)
-    context_data: Optional[str] = None
+    context: Optional[str] = None
 
     @validator('badge_type')
     def validate_badge_type(cls, v):
-        # Ensure badge_type is valid
-        if v not in BadgeType.__members__.values():
-            raise ValueError(f'Invalid badge type: {v}')
+        valid_types = [
+            BadgeType.LESSON_MASTER, BadgeType.STREAK_HOLDER, BadgeType.TOP_PERFORMER,
+            BadgeType.CONSISTENT_LEARNER, BadgeType.WORD_COLLECTOR, BadgeType.PERFECT_SCORE,
+            BadgeType.FAST_LEARNER, BadgeType.WEEKLY_CHAMPION
+        ]
+        if v not in valid_types:
+            raise ValueError(f'Badge type must be one of: {", ".join(valid_types)}')
         return v
 
 
-class BadgeUpdate(BaseModel):
-    level: Optional[int] = Field(None, ge=1)
-    count: Optional[int] = Field(None, ge=1)
-    description: Optional[str] = Field(None, max_length=255)
-    is_active: Optional[bool] = None
-
-
-class BadgeInDB(BadgeBase):
-    id: int
-    user_id: int
-    earned_at: datetime
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-class UserInfo(BaseModel):
-    id: int
-    full_name: str
-    role: str
+class BadgeCreate(BadgeBase):
+    pass
 
 
 class BadgeResponse(BaseModel):
     id: int
-    user: UserInfo
+    user_id: int
     badge_type: str
     badge_name: str
     badge_icon: str
-    badge_category: str
     level: int
     count: int
-    description: Optional[str]
+    context: Optional[str]
     earned_at: datetime
-    is_active: bool
-    is_level_badge: bool
+    is_active: bool = True
 
     class Config:
         from_attributes = True
 
 
-class BadgeEarnedResponse(BaseModel):
-    """Response for when a badge is newly earned"""
-    success: bool
-    message: str
+# Badge with user info
+class BadgeWithUser(BadgeResponse):
+    user_name: str
+    user_role: str
+
+
+# Achievement notification
+class AchievementNotification(BaseModel):
     badge: BadgeResponse
-    is_new_badge: bool = True
-    next_level_threshold: Optional[int] = None
+    is_new_level: bool = False
+    is_first_time: bool = False
+    message: str
+    points_awarded: int = 0
 
 
-# Badge granting request (for admin/system)
-class GrantBadgeRequest(BaseModel):
+# User badge summary
+class UserBadgeSummary(BaseModel):
     user_id: int
-    badge_type: BadgeType
-    context: Optional[str] = None
-
-    @validator('badge_type')
-    def validate_badge_type(cls, v):
-        if v not in BadgeType.__members__.values():
-            raise ValueError(f'Invalid badge type: {v}')
-        return v
-
-
-# Badge progress tracking
-class BadgeProgressRequest(BaseModel):
-    user_id: int
-    badge_type: BadgeType
-    increment: int = Field(default=1, ge=1)
-    context: Optional[str] = None
-
-
-class BadgeProgressResponse(BaseModel):
-    badge_type: str
-    current_count: int
-    current_level: int
-    next_threshold: Optional[int]
-    progress_percentage: float
-    badge_earned: bool = False
-    level_up: bool = False
-
-
-# User badge collection
-class UserBadgeCollection(BaseModel):
-    user_id: int
-    user_full_name: str
+    user_name: str
     total_badges: int
-    achievement_badges: List[BadgeResponse]
-    level_badges: List[BadgeResponse]
-    recent_badges: List[BadgeResponse]  # Last 5 earned
+    recent_badges: List[BadgeResponse] = []
+    badge_levels: dict = {}  # badge_type -> level
+    achievements_this_week: int = 0
+    badge_score: int = 0  # Calculated score based on badges
 
 
-class BadgeListResponse(BaseModel):
-    badges: List[BadgeResponse]
-    total: int
-    page: int
-    per_page: int
-    total_pages: int
+# Badge leaderboard
+class BadgeLeaderboardEntry(BaseModel):
+    rank: int
+    user_id: int
+    user_name: str
+    total_badges: int
+    highest_level: int
+    badge_score: int
+    recent_achievement: Optional[str] = None
+
+
+class BadgeLeaderboard(BaseModel):
+    entries: List[BadgeLeaderboardEntry]
+    period: str = "all_time"  # all_time, monthly, weekly
+    total_participants: int
 
 
 # Badge statistics
 class BadgeStatistics(BaseModel):
     badge_type: str
     badge_name: str
-    total_earned: int
-    unique_earners: int
+    total_holders: int
     highest_level: int
-    highest_count: int
     average_level: float
-    recent_earners: List[UserInfo]
+    recent_awards_30d: int
+    rarity_score: float  # 0-1, lower = rarer
 
 
-class SystemBadgeStats(BaseModel):
-    total_badges_awarded: int
-    unique_badge_holders: int
-    most_popular_badge: str
-    rarest_badge: str
-    total_level_badges: int
-    total_achievement_badges: int
-    badge_stats: List[BadgeStatistics]
+# Badge progress tracking
+class BadgeProgress(BaseModel):
+    badge_type: str
+    badge_name: str
+    current_level: int
+    current_count: int
+    next_threshold: Optional[int] = None
+    progress_percentage: float = 0.0
+    estimated_next_level: Optional[str] = None
 
 
-# Badge filtering
+# Badge award request
+class AwardBadgeRequest(BaseModel):
+    user_id: int = Field(..., gt=0)
+    badge_type: str
+    context: Optional[str] = None
+    auto_level: bool = True  # Automatically determine level based on count
+
+
+# Badge system settings
+class BadgeSystemSettings(BaseModel):
+    lesson_master_thresholds: List[int] = [5, 15, 30, 50, 100]
+    streak_thresholds: List[int] = [3, 7, 14, 30, 60]
+    top_performer_thresholds: List[int] = [1, 3, 7, 15, 30]
+    word_collector_thresholds: List[int] = [50, 200, 500, 1000, 2000]
+
+
+# Badge filters
 class BadgeFilters(BaseModel):
     user_id: Optional[int] = None
-    badge_type: Optional[BadgeType] = None
-    badge_category: Optional[BadgeCategory] = None
+    badge_type: Optional[str] = None
     level: Optional[int] = None
-    date_from: Optional[datetime] = None
-    date_to: Optional[datetime] = None
-    is_active: Optional[bool] = True
-
-
-# Leaderboard integration
-class BadgeLeaderboardEntry(BaseModel):
-    rank: int
-    user_id: int
-    full_name: str
-    badge_count: int
-    highest_level_badges: List[str]
-    recent_achievement: Optional[str]
-
-
-class BadgeLeaderboard(BaseModel):
-    badge_type: Optional[str] = None  # Specific badge type or overall
-    entries: List[BadgeLeaderboardEntry]
-    total_participants: int
+    is_active: Optional[bool] = None
+    earned_from: Optional[datetime] = None
+    earned_to: Optional[datetime] = None

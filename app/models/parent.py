@@ -1,28 +1,27 @@
 from sqlalchemy import Column, String, Integer, ForeignKey
 from sqlalchemy.orm import relationship
 from app.models.base import BaseModel
-from app.models.student import parent_student_association
-
+from app.models.student import parent_students
 
 class Parent(BaseModel):
     __tablename__ = "parents"
 
-    # Link to user
+    # User link
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
     user = relationship("User", back_populates="parent_profile")
 
-    # Parent specific info
-    occupation = Column(String(100), nullable=True)
-    workplace = Column(String(100), nullable=True)
-    relationship_to_student = Column(String(50), nullable=True)  # father, mother, guardian, etc.
-    alternative_contact = Column(String(20), nullable=True)  # Alternative phone number
-    notes = Column(String(500), nullable=True)  # Admin notes about parent
+    # Parent info
+    occupation = Column(String(100))
+    workplace = Column(String(100))
+    relationship_to_student = Column(String(50))  # father, mother, guardian
+    alternative_contact = Column(String(20))
+    notes = Column(String(500))
 
     # Relationships
-    students = relationship("Student", secondary=parent_student_association, back_populates="parents")
+    students = relationship("Student", secondary=parent_students, back_populates="parents")
 
     def __str__(self):
-        return f"Parent(user='{self.user.full_name}', relationship='{self.relationship_to_student}')"
+        return f"Parent({self.user.full_name}, {self.relationship_to_student})"
 
     @property
     def full_name(self):
@@ -32,6 +31,7 @@ class Parent(BaseModel):
     def phone_number(self):
         return self.user.phone_number
 
-    def get_children_names(self):
-        """Get list of children names"""
+    @property
+    def children_names(self):
+        """List of children names"""
         return [student.full_name for student in self.students]

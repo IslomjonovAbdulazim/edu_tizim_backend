@@ -1,163 +1,123 @@
 from typing import Optional, List
-from pydantic import BaseModel, validator, Field
+from pydantic import BaseModel, Field
 from datetime import datetime
 
+# Progress status
+class ProgressStatus:
+    NOT_STARTED = "not_started"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
 
-# Progress tracking schemas
+# Base progress schemas
 class ProgressBase(BaseModel):
-    completion_percentage: float = Field(default=0.0, ge=0.0, le=100.0)
+    user_id: int = Field(..., gt=0)
+    lesson_id: int = Field(..., gt=0)
+    status: str = Field(default=ProgressStatus.NOT_STARTED)
+    attempts: int = Field(default=0, ge=0)
+    correct_answers: int = Field(default=0, ge=0)
+    total_questions: int = Field(default=0, ge=0)
     points: int = Field(default=0, ge=0)
     is_completed: bool = False
-    time_spent_seconds: int = Field(default=0, ge=0)
 
-
-class ProgressCreate(BaseModel):
-    user_id: int
-    lesson_id: int
-    completion_percentage: float = Field(..., ge=0.0, le=100.0)
-    time_spent_seconds: int = Field(default=0, ge=0)
-
+class ProgressCreate(ProgressBase):
+    pass
 
 class ProgressUpdate(BaseModel):
-    completion_percentage: float = Field(..., ge=0.0, le=100.0)
-    time_spent_seconds: int = Field(default=0, ge=0)
-
-
-class ProgressInDB(ProgressBase):
-    id: int
-    user_id: int
-    lesson_id: int
-    total_attempts: int
-    best_score: float
-    first_attempt_at: Optional[datetime]
-    last_attempt_at: Optional[datetime]
-    completed_at: Optional[datetime]
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        from_attributes = True
-
+    status: Optional[str] = None
+    correct_answers: Optional[int] = Field(None, ge=0)
+    total_questions: Optional[int] = Field(None, ge=0)
+    points: Optional[int] = Field(None, ge=0)
+    is_completed: Optional[bool] = None
+    completion_time_seconds: Optional[int] = Field(None, ge=0)
 
 class ProgressResponse(BaseModel):
     id: int
     user_id: int
     lesson_id: int
-    lesson_title: str
-    module_title: str
-    course_name: str
-    completion_percentage: float
+    status: str
+    attempts: int
+    correct_answers: int
+    total_questions: int
     points: int
     is_completed: bool
-    total_attempts: int
-    best_score: float
-    time_spent_seconds: int
-    last_attempt_at: Optional[datetime]
-    completed_at: Optional[datetime]
+    accuracy: float = 0.0
+    completion_percentage: float = 0.0
+    last_attempt_at: Optional[datetime] = None
+    created_at: datetime
 
     class Config:
         from_attributes = True
 
-
-class UserProgressSummary(BaseModel):
-    user_id: int
-    user_full_name: str
-    total_points: int
-    completed_lessons: int
-    total_lessons_attempted: int
-    average_completion: float
-    total_time_spent_hours: float
-    current_streak: int = 0
-
-
-class LessonProgressSummary(BaseModel):
-    lesson_id: int
+# Progress with context
+class ProgressWithContext(ProgressResponse):
     lesson_title: str
     module_title: str
     course_name: str
-    total_students: int
-    completed_students: int
-    average_completion: float
-    average_attempts: float
+    course_level: str
 
-
-class CourseProgressSummary(BaseModel):
-    course_id: int
-    course_name: str
-    total_modules: int
-    total_lessons: int
-    enrolled_students: int
-    average_progress: float
-    completion_rate: float
-
-
-# Weekly and daily progress
-class DailyProgressUpdate(BaseModel):
-    lesson_id: int
-    completion_percentage: float = Field(..., ge=0.0, le=100.0)
-    time_spent_seconds: int = Field(default=0, ge=0)
-    date: Optional[datetime] = None
-
-
-class WeeklyProgressSummary(BaseModel):
-    week_start: datetime
-    week_end: datetime
-    lessons_attempted: int
-    lessons_completed: int
-    points_earned: int
-    time_spent_hours: float
-    average_score: float
-
-
-# Leaderboard related
-class LeaderboardEntry(BaseModel):
-    rank: int
+class UserProgressSummary(BaseModel):
     user_id: int
-    full_name: str
-    avatar_url: Optional[str] = None
-    points: int
-    position_change: int = 0
-    is_current_user: bool = False
+    user_name: str
+    total_lessons_attempted: int
+    lessons_completed: int
+    lessons_in_progress: int
+    total_points: int
+    average_accuracy: float
+    completion_rate: float
+    last_activity: Optional[datetime] = None
 
+# Leaderboard
+class LeaderboardEntry(BaseModel):
+    rank: int = Field(..., ge=1)
+    user_id: int
+    user_name: str
+    total_points: int
+    lessons_completed: int
+    accuracy: float = 0.0
+    position_change: int = 0  # Change from previous ranking
 
 class LeaderboardResponse(BaseModel):
-    date: datetime
     entries: List[LeaderboardEntry]
     total_participants: int
     current_user_rank: Optional[int] = None
+    last_updated: datetime
 
+# Course progress
+class CourseProgressSummary(BaseModel):
+    course_id: int
+    course_name: str
+    level: str
+    total_modules: int
+    completed_modules: int
+    total_lessons: int
+    completed_lessons: int
+    total_points: int
+    possible_points: int
+    progress_percentage: float
+    estimated_completion_time: Optional[str] = None
 
-# Badge and achievement progress
-class BadgeProgressUpdate(BaseModel):
-    badge_type: str
-    count: int
-    context: Optional[str] = None
+# Learning analytics
+class LearningAnalytics(BaseModel):
+    user_id: int
+    period_days: int = 30
+    lessons_completed: int
+    points_earned: int
+    time_spent_hours: float
+    average_accuracy: float
+    streak_days: int
+    most_difficult_words: List[dict] = []
+    learning_velocity: float = 0.0  # lessons per day
 
-
-class AchievementResponse(BaseModel):
-    badge_type: str
-    badge_name: str
-    badge_icon: str
-    level: int
-    count: int
-    earned_at: datetime
-    is_new: bool = False
-
-
-# Progress list responses
-class ProgressListResponse(BaseModel):
-    progress_records: List[ProgressResponse]
-    total: int
-    page: int
-    per_page: int
-    total_pages: int
-
-
+# Progress filters
 class ProgressFilters(BaseModel):
     user_id: Optional[int] = None
     lesson_id: Optional[int] = None
-    course_id: Optional[int] = None
-    module_id: Optional[int] = None
+    status: Optional[str] = None
     is_completed: Optional[bool] = None
     date_from: Optional[datetime] = None
     date_to: Optional[datetime] = None
+
+# Batch progress update
+class BatchProgressUpdate(BaseModel):
+    user_id: int = Field(..., gt=0)
+    progress_updates: List[dict] = Field(..., min_items=1, max_items=20)
