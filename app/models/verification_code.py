@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from sqlalchemy import Column, String, BigInteger, DateTime, Boolean, func
+from sqlalchemy import Column, String, BigInteger, DateTime, Boolean, Integer
 from sqlalchemy.orm import relationship
 from app.models.base import BaseModel
 
@@ -21,8 +21,8 @@ class VerificationCode(BaseModel):
     used_at = Column(DateTime, nullable=True)
 
     # Attempts tracking
-    verification_attempts = Column(String(10), nullable=False, default=0)
-    max_attempts = Column(String(10), nullable=False, default=3)
+    verification_attempts = Column(Integer, nullable=False, default=0)
+    max_attempts = Column(Integer, nullable=False, default=3)
 
     def __str__(self):
         return f"VerificationCode(phone='{self.phone_number}', code='{self.code}')"
