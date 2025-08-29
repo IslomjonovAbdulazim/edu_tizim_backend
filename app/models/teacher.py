@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, ForeignKey, Date
+from sqlalchemy import Column, String, Integer, ForeignKey
 from sqlalchemy.orm import relationship
 from app.models.base import BaseModel
 
@@ -11,11 +11,8 @@ class Teacher(BaseModel):
 
     # Teacher info
     subject_specialization = Column(String(100))
-    teaching_experience_years = Column(Integer, default=0)
-    qualification = Column(String(200))
-    employment_type = Column(String(20), default="full_time")  # full_time, part_time
-    hire_date = Column(Date)
-    bio = Column(String(500))
+    employment_type = Column(String(20), default="full_time")  # full_time, part_time, contract
+    notes = Column(String(500))
 
     # Relationships
     groups = relationship("Group", back_populates="teacher")
@@ -30,19 +27,6 @@ class Teacher(BaseModel):
     @property
     def phone_number(self):
         return self.user.phone_number
-
-    @property
-    def experience_level(self):
-        """Experience level based on years"""
-        years = self.teaching_experience_years or 0
-        if years < 2:
-            return "Beginner"
-        elif years < 5:
-            return "Intermediate"
-        elif years < 10:
-            return "Experienced"
-        else:
-            return "Expert"
 
     @property
     def active_groups_count(self):

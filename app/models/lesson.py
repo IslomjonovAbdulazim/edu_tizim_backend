@@ -11,7 +11,7 @@ class Lesson(BaseModel):
     content = Column(Text)  # Lesson instructions
     is_active = Column(Boolean, default=True, nullable=False)
     order_index = Column(Integer, default=0)
-    base_points = Column(Integer, default=50)
+    base_points = Column(Integer, default=100)
 
     # Module relationship
     module_id = Column(Integer, ForeignKey("modules.id"), nullable=False)

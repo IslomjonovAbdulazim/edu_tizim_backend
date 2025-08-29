@@ -9,7 +9,6 @@ class Group(BaseModel):
     # Basic info
     name = Column(String(100), nullable=False)
     description = Column(Text)
-    max_capacity = Column(Integer, default=20)
     is_active = Column(Boolean, default=True, nullable=False)
 
     # Schedule
@@ -19,10 +18,13 @@ class Group(BaseModel):
 
     # Relationships
     learning_center_id = Column(Integer, ForeignKey("learning_centers.id"), nullable=False)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=False)
     course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
     teacher_id = Column(Integer, ForeignKey("teachers.id"))
 
     # Related objects
+    learning_center = relationship("LearningCenter")
+    branch = relationship("Branch", back_populates="groups")
     course = relationship("Course", back_populates="groups")
     teacher = relationship("Teacher", back_populates="groups")
     students = relationship("Student", secondary=student_groups, back_populates="groups")
@@ -36,13 +38,5 @@ class Group(BaseModel):
         return len(self.students)
 
     @property
-    def available_spots(self):
-        return self.max_capacity - self.current_capacity
-
-    @property
-    def is_full(self):
-        return self.current_capacity >= self.max_capacity
-
-    @property
-    def capacity_percentage(self):
-        return round((self.current_capacity / self.max_capacity) * 100, 1) if self.max_capacity > 0 else 0
+    def students_count(self):
+        return len(self.students)

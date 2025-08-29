@@ -5,10 +5,12 @@ from .base_repository import BaseRepository
 from .user_repository import UserRepository
 from .student_repository import StudentRepository
 from .parent_repository import ParentRepository
+from .teacher_repository import TeacherRepository
 from .verification_repository import VerificationCodeRepository
 
 # Learning center management
 from .learning_center_repository import LearningCenterRepository
+from .branch_repository import BranchRepository
 
 # Content repositories
 from .course_repository import CourseRepository
@@ -22,15 +24,13 @@ from .group_repository import GroupRepository
 # Progress and gamification repositories
 from .progress_repository import ProgressRepository
 from .badge_repository import BadgeRepository
-from .weaklist_repository import WeekListRepository, WeekListWordRepository
-# User management repositories
-from .user_repository import UserRepository
-from .student_repository import StudentRepository
-from .parent_repository import ParentRepository
-from .teacher_repository import TeacherRepository
-from .verification_repository import VerificationCodeRepository
+from .weaklist_repository import WeakListRepository, WeakListWordRepository
+
 # Leaderboard repository
 from .daily_leaderboard_repository import DailyLeaderboardRepository
+
+# Payment repository
+from .payment_repository import PaymentRepository
 
 __all__ = [
     # Base
@@ -40,10 +40,12 @@ __all__ = [
     "UserRepository",
     "StudentRepository",
     "ParentRepository",
+    "TeacherRepository",
     "VerificationCodeRepository",
 
     # Learning center
     "LearningCenterRepository",
+    "BranchRepository",
 
     # Content management
     "CourseRepository",
@@ -57,9 +59,12 @@ __all__ = [
     # Progress and gamification
     "ProgressRepository",
     "BadgeRepository",
-    "WeekListRepository",
-    "WeekListWordRepository",
+    "WeakListRepository",
+    "WeakListWordRepository",
 
     # Leaderboard
     "DailyLeaderboardRepository",
+
+    # Payment system
+    "PaymentRepository",
 ]

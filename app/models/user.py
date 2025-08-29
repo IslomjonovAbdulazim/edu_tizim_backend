@@ -13,9 +13,11 @@ class User(BaseModel):
     is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
 
-    # Learning center
+    # Learning center and branch
     learning_center_id = Column(Integer, ForeignKey("learning_centers.id"), nullable=False)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True)
     learning_center = relationship("LearningCenter", back_populates="users")
+    branch = relationship("Branch", back_populates="users")
 
     # Role profiles (one-to-one)
     student_profile = relationship("Student", back_populates="user", uselist=False, cascade="all, delete-orphan")
@@ -25,7 +27,8 @@ class User(BaseModel):
     # Learning data
     progress_records = relationship("Progress", back_populates="user", cascade="all, delete-orphan")
     user_badges = relationship("UserBadge", back_populates="user", cascade="all, delete-orphan")
-    weekly_lists = relationship("WeekList", back_populates="user", cascade="all, delete-orphan")
+    weak_lists = relationship("WeakList", back_populates="user", cascade="all, delete-orphan")
+    points_earned = relationship("PointsEarned", back_populates="user", cascade="all, delete-orphan")
 
     # Unique constraint
     __table_args__ = (
@@ -37,8 +40,24 @@ class User(BaseModel):
 
     @property
     def total_points(self):
-        """Total points from progress records"""
-        return sum(p.points for p in self.progress_records)
+        """Total points from all point earning events"""
+        return sum(pe.effective_points for pe in self.points_earned)
+
+    @property
+    def points_today(self):
+        """Points earned today"""
+        from datetime import date
+        today = date.today()
+        return sum(pe.effective_points for pe in self.points_earned if pe.date_earned == today)
+
+    @property
+    def points_this_week(self):
+        """Points earned this week"""
+        from datetime import date, timedelta
+        today = date.today()
+        week_start = today - timedelta(days=today.weekday())
+        return sum(pe.effective_points for pe in self.points_earned
+                  if pe.date_earned >= week_start)
 
     def has_role(self, role: str) -> bool:
         """Check user role"""
@@ -47,3 +66,13 @@ class User(BaseModel):
     def has_any_role(self, roles: list) -> bool:
         """Check if user has any of the roles"""
         return self.role in roles
+
+    @property
+    def unseen_badges_count(self):
+        """Count of unseen badges"""
+        return len([badge for badge in self.user_badges if not badge.is_seen and badge.is_active])
+
+    @property
+    def has_new_badges(self):
+        """Check if user has new unseen badges"""
+        return self.unseen_badges_count > 0
