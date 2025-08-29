@@ -14,6 +14,8 @@ from .teacher import Teacher
 from .progress import Progress
 from .badge import UserBadge
 from .daily_leaderboard import DailyLeaderboard
+from .all_time_leaderboard import AllTimeLeaderboard
+from .group_leaderboard import GroupLeaderboard
 from .verification_code import VerificationCode
 from .weaklist import WeakList, WeakListWord
 from .payment import Payment
@@ -34,6 +36,8 @@ __all__ = [
     "Progress",
     "UserBadge",
     "DailyLeaderboard",
+    "AllTimeLeaderboard",
+    "GroupLeaderboard",
     "VerificationCode",
     "WeakList",
     "WeakListWord",

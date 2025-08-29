@@ -38,180 +38,92 @@ class LearningCenter(BaseModel):
     users = relationship("User", back_populates="learning_center", cascade="all, delete-orphan")
     courses = relationship("Course", back_populates="learning_center", cascade="all, delete-orphan")
     branches = relationship("Branch", back_populates="learning_center", cascade="all, delete-orphan")
+
+    # Leaderboard relationships
     daily_leaderboards = relationship("DailyLeaderboard", back_populates="learning_center",
                                       cascade="all, delete-orphan")
+    all_time_leaderboards = relationship("AllTimeLeaderboard", back_populates="learning_center",
+                                         cascade="all, delete-orphan")
+
     payments = relationship("Payment", back_populates="learning_center", cascade="all, delete-orphan")
 
     def __str__(self):
-        return f"LearningCenter({self.name}, {self.remaining_days} days left)"
+        return f"LearningCenter({self.name})"
+
+    @property
+    def is_expired(self):
+        """Check if learning center subscription has expired"""
+        if not self.expires_at:
+            return False
+        return date.today() > self.expires_at
+
+    @property
+    def days_until_expiry(self):
+        """Days remaining until expiry"""
+        if not self.expires_at:
+            return 0
+        delta = self.expires_at - date.today()
+        return max(0, delta.days)
+
+    @property
+    def is_expiring_soon(self):
+        """Check if expiring within 7 days"""
+        return 0 < self.days_until_expiry <= 7
 
     @property
     def total_users(self):
+        """Get total number of users"""
         return len(self.users)
 
     @property
     def active_users(self):
-        return len([u for u in self.users if u.is_active])
+        """Get number of active users"""
+        return len([user for user in self.users if user.is_active])
 
     @property
     def total_courses(self):
+        """Get total number of courses"""
         return len(self.courses)
 
     @property
     def active_courses(self):
-        return len([c for c in self.courses if c.is_active])
+        """Get number of active courses"""
+        return len([course for course in self.courses if course.is_active])
 
     @property
     def total_branches(self):
+        """Get total number of branches"""
         return len(self.branches)
 
     @property
     def active_branches(self):
-        return len([b for b in self.branches if b.is_active])
+        """Get number of active branches"""
+        return len([branch for branch in self.branches if branch.is_active])
 
-    @property
-    def total_payments(self):
-        return len(self.payments)
+    def get_leaderboard_stats(self, target_date: date = None):
+        """Get leaderboard statistics for this center"""
+        if target_date is None:
+            target_date = date.today()
 
-    @property
-    def account_status(self):
-        """Get account status based on remaining days"""
-        if self.remaining_days <= 0:
-            return "expired"
-        elif self.remaining_days <= 7:
-            return "expiring_soon"
-        elif self.remaining_days <= 30:
-            return "active_warning"
-        else:
-            return "active"
+        # Daily leaderboard stats
+        daily_entries = [
+            entry for entry in self.daily_leaderboards
+            if entry.leaderboard_date == target_date
+        ]
 
-    @property
-    def days_until_expiration(self):
-        """Get days until account expires"""
-        return max(0, self.remaining_days)
+        # All-time leaderboard stats
+        all_time_entries = self.all_time_leaderboards
 
-    @property
-    def is_expired(self):
-        """Check if account is expired"""
-        return self.remaining_days <= 0
-
-    @property
-    def needs_payment_soon(self):
-        """Check if payment needed within 7 days"""
-        return self.remaining_days <= 7
-
-    def add_payment(self, amount: float, days_added: int, payment_method: str = "manual",
-                    reference_number: str = None, notes: str = None, processed_by: str = "admin"):
-        """Process a new payment and add days to account"""
-        from app.models.payment import Payment
-
-        # Add days to account
-        self.remaining_days += days_added
-
-        # Update payment tracking
-        self.last_payment_date = date.today()
-        self.total_paid = (self.total_paid or 0) + amount
-
-        # Update expiration date
-        self.update_expiration_date()
-
-        # Reactivate account if it was expired
-        if not self.is_active and self.remaining_days > 0:
-            self.is_active = True
-
-        # Create payment record
-        payment = Payment(
-            learning_center_id=self.id,
-            amount=amount,
-            days_added=days_added,
-            payment_date=date.today(),
-            payment_method=payment_method,
-            reference_number=reference_number,
-            notes=notes,
-            processed_by=processed_by,
-            status="completed",
-            is_processed=True
-        )
-
-        return payment
-
-    def update_expiration_date(self):
-        """Update expiration date based on remaining days"""
-        if self.remaining_days > 0:
-            self.expires_at = date.today() + timedelta(days=self.remaining_days)
-        else:
-            self.expires_at = date.today()
-
-    def check_and_update_status(self):
-        """Check account status and update is_active accordingly"""
-        should_be_active = self.remaining_days > 0
-
-        if self.is_active != should_be_active:
-            self.is_active = should_be_active
-
-        # Update expiration date
-        self.update_expiration_date()
-
-        return self.is_active
-
-    def deduct_day(self):
-        """Deduct one day from account (called daily by scheduler)"""
-        if self.remaining_days > 0:
-            self.remaining_days -= 1
-
-        # Auto-deactivate if no days left
-        if self.remaining_days <= 0:
-            self.is_active = False
-
-        self.update_expiration_date()
-        return self.remaining_days
-
-    def extend_trial(self, trial_days: int = 7, processed_by: str = "system"):
-        """Add free trial days (no payment required)"""
-        from app.models.payment import Payment
-
-        self.remaining_days += trial_days
-        self.update_expiration_date()
-
-        if not self.is_active:
-            self.is_active = True
-
-        # Create a record for trial extension
-        payment = Payment(
-            learning_center_id=self.id,
-            amount=0.00,
-            days_added=trial_days,
-            payment_date=date.today(),
-            payment_method="trial",
-            notes=f"Free trial extension: {trial_days} days",
-            processed_by=processed_by,
-            status="completed",
-            is_processed=True
-        )
-
-        return payment
-
-    def get_payment_history(self, limit: int = None):
-        """Get payment history, most recent first"""
-        payments = sorted(self.payments, key=lambda p: p.payment_date, reverse=True)
-        if limit:
-            return payments[:limit]
-        return payments
-
-    def calculate_monthly_cost(self):
-        """Calculate average monthly cost based on payment history"""
-        if not self.payments:
-            return 0.0
-
-        completed_payments = [p for p in self.payments if p.status == "completed"]
-        if not completed_payments:
-            return 0.0
-
-        total_paid = sum(float(p.amount) for p in completed_payments)
-        total_days = sum(p.days_added for p in completed_payments)
-
-        if total_days == 0:
-            return 0.0
-
-        cost_per_day = total_paid / total_days
-        return round(cost_per_day * 30, 2)  # Monthly cost
+        return {
+            'daily': {
+                'date': target_date,
+                'participants': len(daily_entries),
+                'top_performer': daily_entries[0].user_full_name if daily_entries else None,
+                'top_points': daily_entries[0].points if daily_entries else 0
+            },
+            'all_time': {
+                'participants': len(all_time_entries),
+                'top_performer': all_time_entries[0].user_full_name if all_time_entries else None,
+                'top_points': all_time_entries[0].total_points if all_time_entries else 0
+            }
+        }

@@ -1,86 +1,193 @@
-from sqlalchemy import Column, String, Integer, ForeignKey, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, JSON
 from sqlalchemy.orm import relationship
-from app.models.base import BaseModel
 from datetime import datetime
+from app.models.base import BaseModel
 
 
 class UserBadge(BaseModel):
+    """User badge model - tracks badges earned by users"""
     __tablename__ = "user_badges"
 
-    # User relationship
+    # User and badge references
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    user = relationship("User", back_populates="user_badges")
+    badge_type_id = Column(Integer, ForeignKey("badge_types.id"), nullable=False)
 
-    # Badge info
-    badge_type = Column(String(50), nullable=False)  # lesson_master, streak_holder, etc.
-    level = Column(Integer, default=1)
-    count = Column(Integer, default=1)  # Number of achievements of this type
-    earned_at = Column(DateTime, nullable=False)
+    # Badge instance details
+    level = Column(Integer, default=1)  # For progressive badges
+    count = Column(Integer, default=1)  # For repeatable badges
+
+    # Earning details
+    earned_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    context = Column(JSON, nullable=True)  # Context when earned (rank, points, etc.)
+
+    # Status
     is_active = Column(Boolean, default=True)
+    is_featured = Column(Boolean, default=False)  # Show prominently on profile
 
-    # Notification tracking - NEW FIELDS!
-    is_seen = Column(Boolean, default=False, nullable=False)  # Has user seen this badge?
-    seen_at = Column(DateTime, nullable=True)  # When user viewed the badge
-
-    # Optional metadata
-    context = Column(String(200))  # Additional info about achievement
+    # Relationships
+    user = relationship("User", back_populates="user_badges")
+    badge_type = relationship("BadgeType", back_populates="user_badges")
 
     def __str__(self):
-        return f"Badge({self.user.full_name}, {self.badge_type}, Level {self.level})"
+        level_str = f" (Level {self.level})" if self.level > 1 else ""
+        return f"UserBadge({self.user_id}, {self.badge_type.name}{level_str})"
 
     @property
     def badge_name(self):
-        """Human readable badge name"""
-        names = {
-            "lesson_master": "Lesson Master",
-            "streak_holder": "Streak Holder",
-            "top_performer": "Top Performer",
-            "consistent_learner": "Consistent Learner",
-            "word_collector": "Word Collector",
-            "perfect_score": "Perfect Score"
-        }
-        return names.get(self.badge_type, self.badge_type.replace("_", " ").title())
+        """Get badge name with level if applicable"""
+        if self.badge_type.is_progressive and self.level > 1:
+            return f"{self.badge_type.name} (Level {self.level})"
+        return self.badge_type.name
 
     @property
     def badge_icon(self):
-        """Badge icon/emoji"""
-        icons = {
-            "lesson_master": "🎓",
-            "streak_holder": "🔥",
-            "top_performer": "👑",
-            "consistent_learner": "📚",
-            "word_collector": "📝",
-            "perfect_score": "💯"
-        }
-        return icons.get(self.badge_type, "🏆")
+        """Get badge icon"""
+        return self.badge_type.icon
 
     @property
-    def is_new(self):
-        """Check if badge is new/unseen"""
-        return not self.is_seen
+    def badge_description(self):
+        """Get badge description"""
+        return self.badge_type.description
 
-    def mark_as_seen(self):
-        """Mark badge as seen by user"""
-        self.is_seen = True
-        self.seen_at = datetime.utcnow()
+    @property
+    def badge_color_primary(self):
+        """Get badge primary color"""
+        return self.badge_type.color_primary
 
-    def mark_as_unseen(self):
-        """Mark badge as unseen (when updated/level up)"""
-        self.is_seen = False
-        self.seen_at = None
+    @property
+    def badge_color_secondary(self):
+        """Get badge secondary color"""
+        return self.badge_type.color_secondary
 
-    def level_up(self, new_level: int):
-        """Increase badge level and mark as unseen"""
-        if new_level > self.level:
-            self.level = new_level
-            self.mark_as_unseen()  # User needs to see the level up
+    @property
+    def badge_rarity(self):
+        """Get badge rarity"""
+        return self.badge_type.rarity
+
+    @property
+    def is_daily_badge(self):
+        """Check if this is a daily badge"""
+        return self.badge_type.is_daily
+
+    @property
+    def is_streak_badge(self):
+        """Check if this is a streak badge"""
+        return self.badge_type.is_streak
+
+    @property
+    def is_achievement_badge(self):
+        """Check if this is an achievement badge"""
+        return self.badge_type.is_achievement
+
+    @property
+    def can_level_up(self):
+        """Check if badge can be leveled up"""
+        return (self.badge_type.is_progressive and
+                self.level < self.badge_type.max_level)
+
+    @property
+    def is_max_level(self):
+        """Check if badge is at maximum level"""
+        return (not self.badge_type.is_progressive or
+                self.level >= self.badge_type.max_level)
+
+    def get_context_value(self, key: str, default=None):
+        """Get value from context data"""
+        if not self.context:
+            return default
+        return self.context.get(key, default)
+
+    def level_up(self):
+        """Level up the badge if possible"""
+        if self.can_level_up:
+            self.level += 1
+            return True
+        return False
+
+    def increment_count(self):
+        """Increment count for repeatable badges"""
+        if self.badge_type.is_repeatable:
+            self.count += 1
             self.earned_at = datetime.utcnow()  # Update earned time
+            return True
+        return False
 
-    def increment_count(self, increment: int = 1):
-        """Increment badge count and mark as unseen if significant"""
-        old_count = self.count
-        self.count += increment
+    @classmethod
+    def create_daily_badge(
+            cls,
+            user_id: int,
+            badge_type_id: int,
+            rank: int,
+            points: int,
+            date: str = None
+    ):
+        """Factory method for daily badges"""
+        context = {
+            "rank": rank,
+            "points": points,
+            "leaderboard_type": "daily"
+        }
+        if date:
+            context["date"] = date
 
-        # Mark as unseen if it's a milestone (every 10 counts or first few)
-        if self.count <= 5 or self.count % 10 == 0 or old_count < 10:
-            self.mark_as_unseen()
+        return cls(
+            user_id=user_id,
+            badge_type_id=badge_type_id,
+            level=1,
+            count=1,
+            context=context,
+            is_featured=rank <= 3  # Feature top 3 badges
+        )
+
+    @classmethod
+    def create_achievement_badge(
+            cls,
+            user_id: int,
+            badge_type_id: int,
+            achievement_data: dict = None
+    ):
+        """Factory method for achievement badges"""
+        return cls(
+            user_id=user_id,
+            badge_type_id=badge_type_id,
+            level=1,
+            count=1,
+            context=achievement_data or {},
+            is_featured=True  # Feature achievements
+        )
+
+    @classmethod
+    def create_streak_badge(
+            cls,
+            user_id: int,
+            badge_type_id: int,
+            streak_days: int,
+            level: int = 1
+    ):
+        """Factory method for streak badges"""
+        return cls(
+            user_id=user_id,
+            badge_type_id=badge_type_id,
+            level=level,
+            count=1,
+            context={"streak_days": streak_days},
+            is_featured=True  # Feature streak badges
+        )
+
+    def to_dict(self):
+        """Convert to dictionary"""
+        data = super().to_dict()
+        data.update({
+            'badge_name': self.badge_name,
+            'badge_icon': self.badge_icon,
+            'badge_description': self.badge_description,
+            'badge_color_primary': self.badge_color_primary,
+            'badge_color_secondary': self.badge_color_secondary,
+            'badge_rarity': self.badge_rarity,
+            'is_daily_badge': self.is_daily_badge,
+            'is_streak_badge': self.is_streak_badge,
+            'is_achievement_badge': self.is_achievement_badge,
+            'can_level_up': self.can_level_up,
+            'is_max_level': self.is_max_level
+        })
+        return data
