@@ -1,48 +1,51 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
-from app.models import UserRole
-from app.schemas import (
-    UserCreate, UserUpdate, UserResponse, LoginRequest, LoginResponse,
-    UserStats, UserWithDetails
-)
+from app.models.user import UserRole
+from app.schemas.user import UserCreate, UserUpdate, UserResponse, LoginRequest
 from app.services.base import BaseService
 
 
 class UserService(BaseService):
+    """User service for authentication and user management"""
+
     def __init__(self, db: Session):
         super().__init__(db)
 
-    def create_user(self, user_data: UserCreate) -> Dict[str, Any]:
-        """Create new user with validation"""
+    def create_user(self, user_data: UserCreate, creator_id: Optional[int] = None) -> Dict[str, Any]:
+        """Create new user with role assignment"""
+        # Validate creator permissions if provided
+        if creator_id and not self._check_permissions(
+            creator_id,
+            [UserRole.RECEPTION, UserRole.ADMIN, UserRole.SUPER_ADMIN],
+            user_data.learning_center_id
+        ):
+            return self._format_error_response("Insufficient permissions to create users")
+
         # Check if telegram ID already exists
-        if self.repos.user.telegram_id_exists(user_data.telegram_id):
+        if user_data.telegram_id and self.repos.user.telegram_id_exists(user_data.telegram_id):
             return self._format_error_response("Telegram ID already registered")
 
-        # Check if phone exists in this learning center
+        # Check if phone exists in learning center
         if self.repos.user.phone_exists_in_center(user_data.phone_number, user_data.learning_center_id):
             return self._format_error_response("Phone number already registered in this learning center")
 
-        # Verify learning center exists and is active
-        learning_center = self.repos.learning_center.get(user_data.learning_center_id)
-        if not learning_center:
-            return self._format_error_response("Learning center not found")
+        # Verify learning center is active
+        if not self._check_center_active(user_data.learning_center_id):
+            return self._format_error_response("Learning center is not active")
 
-        if not learning_center.is_active:
-            return self._format_error_response("Learning center subscription expired")
-
-        # Verify branch if provided
-        if user_data.branch_id:
-            branch = self.repos.branch.get(user_data.branch_id)
-            if not branch or branch.learning_center_id != user_data.learning_center_id:
-                return self._format_error_response("Invalid branch for this learning center")
-
-        # Create user
         try:
-            user = self.repos.user.create(user_data.dict())
+            # Create user with role
+            user = self.repos.user.create_user_with_role(
+                user_data.dict(exclude={'role'}),
+                user_data.learning_center_id,
+                user_data.role
+            )
+
             return self._format_success_response(
                 UserResponse.from_orm(user),
                 "User created successfully"
             )
+
         except Exception as e:
             return self._format_error_response(f"Failed to create user: {str(e)}")
 
@@ -54,71 +57,106 @@ class UserService(BaseService):
         )
 
         if not user:
-            return self._format_error_response("User not found")
+            return self._format_error_response("User not found in this learning center")
 
         if not user.is_active:
             return self._format_error_response("User account is deactivated")
 
         # Check learning center status
-        learning_center = self.repos.learning_center.get(user.learning_center_id)
-        if not learning_center or not learning_center.is_active:
+        if not self._check_center_active(login_data.learning_center_id):
             return self._format_error_response("Learning center subscription expired")
 
-        response_data = LoginResponse(
-            user=UserResponse.from_orm(user),
-            verification_required=not user.is_verified,
-            message="Login successful" if user.is_verified else "Phone verification required"
-        )
+        return self._format_success_response({
+            "user": UserResponse.from_orm(user),
+            "verification_required": not user.is_verified,
+            "next_step": "verify_phone" if not user.is_verified else "access_dashboard"
+        })
 
-        return self._format_success_response(response_data)
-
-    def get_user(self, user_id: int) -> Optional[UserWithDetails]:
-        """Get user with additional details"""
-        user = self.repos.user.get(user_id)
-        if not user:
-            return None
-
-        user_data = UserWithDetails.from_orm(user)
-        user_data.learning_center_name = user.learning_center.brand_name if user.learning_center else None
-        user_data.branch_title = user.branch.title if user.branch else None
-
-        return user_data
-
-    def update_user(self, user_id: int, update_data: UserUpdate, updater_id: int) -> Dict[str, Any]:
-        """Update user with permission checks"""
+    def get_user(self, user_id: int, requester_id: int) -> Dict[str, Any]:
+        """Get user details with permission check"""
         user = self.repos.user.get(user_id)
         if not user:
             return self._format_error_response("User not found")
 
-        updater = self.repos.user.get(updater_id)
-        if not updater:
-            return self._format_error_response("Invalid updater")
+        # Permission check: self, admin, or same learning center staff
+        can_view = (
+            user_id == requester_id or
+            self._check_permissions(requester_id, [UserRole.ADMIN, UserRole.SUPER_ADMIN]) or
+            (self._check_permissions(requester_id, [UserRole.RECEPTION, UserRole.GROUP_MANAGER]) and
+             self._validate_learning_center_access(requester_id, self._get_user_learning_center(user_id)))
+        )
 
-        # Permission check: user can update themselves, or admin/super_admin can update others
+        if not can_view:
+            return self._format_error_response("Insufficient permissions")
+
+        return self._format_success_response(UserResponse.from_orm(user))
+
+    def update_user(self, user_id: int, update_data: UserUpdate, updater_id: int) -> Dict[str, Any]:
+        """Update user information"""
+        user = self.repos.user.get(user_id)
+        if not user:
+            return self._format_error_response("User not found")
+
+        # Permission check
         can_update = (
-                user_id == updater_id or  # Self update
-                updater.has_any_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]) or  # Admin update
-                (updater.has_role(UserRole.RECEPTION) and user.learning_center_id == updater.learning_center_id)
-        # Reception in same center
+            user_id == updater_id or  # Self update
+            self._check_permissions(updater_id, [UserRole.ADMIN, UserRole.SUPER_ADMIN]) or
+            (self._check_permissions(updater_id, [UserRole.RECEPTION]) and
+             self._validate_learning_center_access(updater_id, self._get_user_learning_center(user_id)))
         )
 
         if not can_update:
             return self._format_error_response("Insufficient permissions")
 
-        # Update user
-        update_dict = update_data.dict(exclude_unset=True)
-        updated_user = self.repos.user.update(user_id, update_dict)
+        try:
+            updated_user = self.repos.user.update(user_id, update_data.dict(exclude_unset=True))
+            return self._format_success_response(
+                UserResponse.from_orm(updated_user),
+                "User updated successfully"
+            )
 
-        if not updated_user:
-            return self._format_error_response("Failed to update user")
+        except Exception as e:
+            return self._format_error_response(f"Failed to update user: {str(e)}")
 
-        return self._format_success_response(
-            UserResponse.from_orm(updated_user),
-            "User updated successfully"
+    def change_user_role(self, user_id: int, new_role: UserRole, changer_id: int) -> Dict[str, Any]:
+        """Change user role with permission validation"""
+        if not self._check_permissions(changer_id, [UserRole.ADMIN, UserRole.SUPER_ADMIN]):
+            return self._format_error_response("Only admins can change user roles")
+
+        user = self.repos.user.get(user_id)
+        if not user:
+            return self._format_error_response("User not found")
+
+        # Additional restrictions for non-super-admins
+        changer = self.repos.user.get(changer_id)
+        is_super_admin = any(
+            role.role == UserRole.SUPER_ADMIN
+            for role in changer.center_roles
+            if role.is_active
         )
 
+        if not is_super_admin:
+            # Regular admin can't create other admins or super admins
+            if new_role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+                return self._format_error_response("Cannot assign admin or super admin role")
+
+            # Must be in same learning center
+            user_center = self._get_user_learning_center(user_id)
+            if not self._validate_learning_center_access(changer_id, user_center):
+                return self._format_error_response("Can only change roles within same learning center")
+
+        try:
+            updated_user = self.repos.user.change_role(user_id, new_role)
+            return self._format_success_response(
+                UserResponse.from_orm(updated_user),
+                f"User role changed to {new_role.value}"
+            )
+
+        except Exception as e:
+            return self._format_error_response(f"Failed to change role: {str(e)}")
+
     def verify_user(self, user_id: int) -> Dict[str, Any]:
-        """Mark user as verified"""
+        """Mark user as verified (used by verification service)"""
         user = self.repos.user.verify_user(user_id)
         if not user:
             return self._format_error_response("User not found")
@@ -128,47 +166,13 @@ class UserService(BaseService):
             "User verified successfully"
         )
 
-    def change_user_role(self, user_id: int, new_role: UserRole, changer_id: int) -> Dict[str, Any]:
-        """Change user role with permission checks"""
-        user = self.repos.user.get(user_id)
-        changer = self.repos.user.get(changer_id)
-
-        if not user or not changer:
-            return self._format_error_response("User not found")
-
-        # Only admin and super_admin can change roles
-        if not changer.has_any_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]):
-            return self._format_error_response("Insufficient permissions")
-
-        # Super admin can change any role, admin can't create other admins or super_admins
-        if changer.has_role(UserRole.ADMIN) and new_role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-            return self._format_error_response("Cannot assign admin or super_admin role")
-
-        # Same learning center check (except super admin)
-        if not changer.has_role(UserRole.SUPER_ADMIN):
-            if user.learning_center_id != changer.learning_center_id:
-                return self._format_error_response("Can only change roles within same learning center")
-
-        updated_user = self.repos.user.change_role(user_id, new_role)
-        return self._format_success_response(
-            UserResponse.from_orm(updated_user),
-            f"User role changed to {new_role}"
-        )
-
     def get_users_by_center(self, learning_center_id: int, requester_id: int) -> Dict[str, Any]:
         """Get all users in learning center"""
-        requester = self.repos.user.get(requester_id)
-        if not requester:
-            return self._format_error_response("Invalid requester")
-
-        # Permission check
-        can_view = (
-                requester.has_role(UserRole.SUPER_ADMIN) or
-                (requester.learning_center_id == learning_center_id and
-                 requester.has_any_role([UserRole.ADMIN, UserRole.RECEPTION, UserRole.GROUP_MANAGER]))
-        )
-
-        if not can_view:
+        if not self._check_permissions(
+            requester_id,
+            [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.RECEPTION, UserRole.GROUP_MANAGER],
+            learning_center_id
+        ):
             return self._format_error_response("Insufficient permissions")
 
         users = self.repos.user.get_users_by_center(learning_center_id)
@@ -176,22 +180,13 @@ class UserService(BaseService):
 
         return self._format_success_response(users_data)
 
-    def get_users_by_role(self, role: UserRole, learning_center_id: int, requester_id: int) -> Dict[str, Any]:
-        """Get users by role in learning center"""
-        # Permission check
-        if not self._check_permissions(requester_id, [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.RECEPTION],
-                                       learning_center_id):
-            return self._format_error_response("Insufficient permissions")
-
-        users = self.repos.user.get_users_by_role(role, learning_center_id)
-        users_data = [UserResponse.from_orm(user) for user in users]
-
-        return self._format_success_response(users_data)
-
     def search_users(self, query: str, learning_center_id: int, requester_id: int) -> Dict[str, Any]:
         """Search users by name or phone"""
-        if not self._check_permissions(requester_id, [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.RECEPTION],
-                                       learning_center_id):
+        if not self._check_permissions(
+            requester_id,
+            [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.RECEPTION, UserRole.GROUP_MANAGER],
+            learning_center_id
+        ):
             return self._format_error_response("Insufficient permissions")
 
         users = self.repos.user.search_users(learning_center_id, query)
@@ -200,83 +195,86 @@ class UserService(BaseService):
         return self._format_success_response(users_data)
 
     def deactivate_user(self, user_id: int, deactivator_id: int) -> Dict[str, Any]:
-        """Deactivate user"""
-        user = self.repos.user.get(user_id)
-        deactivator = self.repos.user.get(deactivator_id)
+        """Deactivate user account"""
+        if not self._check_permissions(deactivator_id, [UserRole.ADMIN, UserRole.SUPER_ADMIN]):
+            return self._format_error_response("Admin access required")
 
-        if not user or not deactivator:
+        user = self.repos.user.get(user_id)
+        if not user:
             return self._format_error_response("User not found")
 
-        # Permission check
-        can_deactivate = (
-                deactivator.has_role(UserRole.SUPER_ADMIN) or
-                (deactivator.has_role(UserRole.ADMIN) and user.learning_center_id == deactivator.learning_center_id)
-        )
-
-        if not can_deactivate:
-            return self._format_error_response("Insufficient permissions")
-
-        # Can't deactivate yourself or other admins/super_admins
+        # Can't deactivate yourself
         if user_id == deactivator_id:
             return self._format_error_response("Cannot deactivate yourself")
 
-        if user.has_any_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]) and not deactivator.has_role(UserRole.SUPER_ADMIN):
-            return self._format_error_response("Cannot deactivate admin or super_admin")
-
-        updated_user = self.repos.user.deactivate_user(user_id)
-        return self._format_success_response(
-            UserResponse.from_orm(updated_user),
-            "User deactivated successfully"
+        # Non-super-admin can't deactivate admins
+        deactivator = self.repos.user.get(deactivator_id)
+        is_super_admin = any(
+            role.role == UserRole.SUPER_ADMIN
+            for role in deactivator.center_roles
+            if role.is_active
         )
+
+        if not is_super_admin:
+            user_roles = [role.role for role in user.center_roles if role.is_active]
+            if UserRole.ADMIN in user_roles or UserRole.SUPER_ADMIN in user_roles:
+                return self._format_error_response("Cannot deactivate admin users")
+
+        try:
+            updated_user = self.repos.user.deactivate_user(user_id)
+            return self._format_success_response(
+                UserResponse.from_orm(updated_user),
+                "User deactivated successfully"
+            )
+
+        except Exception as e:
+            return self._format_error_response(f"Failed to deactivate user: {str(e)}")
 
     def activate_user(self, user_id: int, activator_id: int) -> Dict[str, Any]:
-        """Activate user"""
-        # Similar logic to deactivate but for activation
-        user = self.repos.user.get(user_id)
-        activator = self.repos.user.get(activator_id)
+        """Activate user account"""
+        if not self._check_permissions(activator_id, [UserRole.ADMIN, UserRole.SUPER_ADMIN]):
+            return self._format_error_response("Admin access required")
 
-        if not user or not activator:
-            return self._format_error_response("User not found")
+        try:
+            updated_user = self.repos.user.activate_user(user_id)
+            if not updated_user:
+                return self._format_error_response("User not found")
 
-        # Permission check
-        can_activate = (
-                activator.has_role(UserRole.SUPER_ADMIN) or
-                (activator.has_role(UserRole.ADMIN) and user.learning_center_id == activator.learning_center_id)
-        )
+            return self._format_success_response(
+                UserResponse.from_orm(updated_user),
+                "User activated successfully"
+            )
 
-        if not can_activate:
-            return self._format_error_response("Insufficient permissions")
+        except Exception as e:
+            return self._format_error_response(f"Failed to activate user: {str(e)}")
 
-        updated_user = self.repos.user.activate_user(user_id)
-        return self._format_success_response(
-            UserResponse.from_orm(updated_user),
-            "User activated successfully"
-        )
+    def link_telegram(self, user_id: int, telegram_id: int) -> Dict[str, Any]:
+        """Link Telegram ID to user account (used by verification service)"""
+        # Check if telegram ID is already used
+        if self.repos.user.telegram_id_exists(telegram_id):
+            return self._format_error_response("Telegram ID already linked to another account")
 
-    def get_user_stats(self, user_id: int) -> Optional[UserStats]:
-        """Get comprehensive user statistics"""
-        user = self.repos.user.get(user_id)
-        if not user:
-            return None
+        try:
+            updated_user = self.repos.user.link_telegram(user_id, telegram_id)
+            if not updated_user:
+                return self._format_error_response("User not found")
 
-        # Get progress stats
-        progress_records = self.repos.progress.get_user_progress(user_id)
-        total_points = sum(p.points for p in progress_records)
-        lessons_completed = sum(1 for p in progress_records if p.is_completed)
-        perfect_lessons = self.repos.progress.get_perfect_lessons_count(user_id)
+            return self._format_success_response(
+                UserResponse.from_orm(updated_user),
+                "Telegram account linked successfully"
+            )
 
-        # Get gamification stats
-        weaklist_solved = self.repos.weak_word.get_mastered_words_count(user_id)
-        position_improvements = self.repos.leaderboard.get_position_improvements_count(user_id)
-        badges_count = self.repos.badge.get_total_badges_count(user_id)
+        except Exception as e:
+            return self._format_error_response(f"Failed to link Telegram: {str(e)}")
 
-        return UserStats(
-            user_id=user_id,
-            total_points=total_points,
-            lessons_completed=lessons_completed,
-            perfect_lessons=perfect_lessons,
-            weaklist_solved=weaklist_solved,
-            position_improvements=position_improvements,
-            current_streak=0,  # TODO: Implement streak calculation
-            badges_count=badges_count
-        )
+    def get_user_stats(self, learning_center_id: int, requester_id: int) -> Dict[str, Any]:
+        """Get user statistics for learning center"""
+        if not self._check_permissions(
+            requester_id,
+            [UserRole.ADMIN, UserRole.SUPER_ADMIN],
+            learning_center_id
+        ):
+            return self._format_error_response("Admin access required")
+
+        stats = self.repos.user.get_user_stats_summary(learning_center_id)
+        return self._format_success_response(stats)
