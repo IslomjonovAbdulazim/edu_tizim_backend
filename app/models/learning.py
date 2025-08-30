@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, ForeignKey, Boolean, Float, DateTime, JSON, UniqueConstraint
+from sqlalchemy import Column, String, Integer, ForeignKey, Boolean, Float, DateTime, JSON, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .base import BaseModel
@@ -7,7 +7,7 @@ from .base import BaseModel
 class Progress(BaseModel):
     __tablename__ = "progress"
 
-    # User and lesson - MUST include learning_center_id for multi-tenancy
+    # User and lesson
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=False)
     learning_center_id = Column(Integer, ForeignKey("learning_centers.id"), nullable=False)
@@ -25,13 +25,15 @@ class Progress(BaseModel):
     # Relationships
     user = relationship("User", back_populates="progress_records")
     lesson = relationship("Lesson", back_populates="progress_records")
+    learning_center = relationship("LearningCenter", back_populates="progress_records")
 
-    # Relationships
-    learning_center = relationship("LearningCenter")
-
-    # Unique constraint: one progress record per user per lesson per center
+    # Constraints and indexes
     __table_args__ = (
         UniqueConstraint('user_id', 'lesson_id', 'learning_center_id', name='uq_progress_user_lesson_center'),
+        Index('idx_user_center', 'user_id', 'learning_center_id'),
+        Index('idx_lesson_user', 'lesson_id', 'user_id'),
+        Index('idx_center_completed', 'learning_center_id', 'is_completed'),
+        Index('idx_last_attempt', 'last_attempt_at'),
     )
 
     def __str__(self):
@@ -43,6 +45,16 @@ class Progress(BaseModel):
         if self.total_attempts == 0:
             return 0.0
         return round((self.correct_answers / self.total_attempts) * 100, 1)
+
+    def update_progress(self, new_percentage: float, correct: int, total: int):
+        """Update progress with new results"""
+        if new_percentage > self.completion_percentage:
+            self.completion_percentage = new_percentage
+            self.points = int(new_percentage)
+            self.is_completed = new_percentage >= 100
+            self.total_attempts = total
+            self.correct_answers = correct
+            self.last_attempt_at = datetime.utcnow()
 
 
 class QuizSession(BaseModel):
@@ -67,7 +79,15 @@ class QuizSession(BaseModel):
     # Relationships
     user = relationship("User", back_populates="quiz_sessions")
     lesson = relationship("Lesson", back_populates="quiz_sessions")
-    learning_center = relationship("LearningCenter")
+    learning_center = relationship("LearningCenter", back_populates="quiz_sessions")
+
+    # Indexes
+    __table_args__ = (
+        Index('idx_user_session', 'user_id', 'started_at'),
+        Index('idx_lesson_session', 'lesson_id', 'started_at'),
+        Index('idx_center_session', 'learning_center_id', 'started_at'),
+        Index('idx_completed_session', 'is_completed', 'completed_at'),
+    )
 
     def __str__(self):
         return f"QuizSession({self.user_id}, {self.lesson_id})"
@@ -78,11 +98,20 @@ class QuizSession(BaseModel):
             return 0.0
         return round((self.correct_answers / self.total_questions) * 100, 1)
 
+    def complete_session(self, quiz_results: dict):
+        """Complete quiz session with results"""
+        self.quiz_results = quiz_results
+        self.total_questions = len(quiz_results)
+        self.correct_answers = sum(1 for is_correct in quiz_results.values() if is_correct)
+        self.completion_percentage = (self.correct_answers / self.total_questions * 100) if self.total_questions > 0 else 0
+        self.is_completed = True
+        self.completed_at = datetime.utcnow()
+
 
 class WeakWord(BaseModel):
     __tablename__ = "weak_words"
 
-    # User and word - include learning_center_id for separation
+    # User and word
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     word_id = Column(Integer, ForeignKey("words.id"), nullable=False)
     learning_center_id = Column(Integer, ForeignKey("learning_centers.id"), nullable=False)
@@ -99,11 +128,14 @@ class WeakWord(BaseModel):
     # Relationships
     user = relationship("User", back_populates="weak_words")
     word = relationship("Word", back_populates="weak_words")
-    learning_center = relationship("LearningCenter")
+    learning_center = relationship("LearningCenter", back_populates="weak_words")
 
-    # Unique constraint: one weak word record per user per word per center
+    # Constraints and indexes
     __table_args__ = (
-        UniqueConstraint('user_id', 'word_id', 'learning_center_id', name='uq_weak_word_user_word_center'),
+        UniqueConstraint('user_id', 'word_id', 'learning_center_id', name='uq_weak_word'),
+        Index('idx_user_center_strength', 'user_id', 'learning_center_id', 'strength'),
+        Index('idx_word_center', 'word_id', 'learning_center_id'),
+        Index('idx_strength_attempt', 'strength', 'last_attempt_at'),
     )
 
     def __str__(self):

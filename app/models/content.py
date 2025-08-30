@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, ForeignKey, Boolean, Text
+from sqlalchemy import Column, String, Integer, ForeignKey, Boolean, Text, Index
 from sqlalchemy.orm import relationship
 from .base import BaseModel
 
@@ -21,8 +21,26 @@ class Course(BaseModel):
     modules = relationship("Module", back_populates="course", cascade="all, delete-orphan",
                            order_by="Module.order_index")
 
+    # Indexes
+    __table_args__ = (
+        Index('idx_center_active', 'learning_center_id', 'is_active'),
+        Index('idx_center_order', 'learning_center_id', 'order_index'),
+    )
+
     def __str__(self):
         return f"Course({self.name}, {self.level})"
+
+    @property
+    def total_modules(self):
+        return len([m for m in self.modules if m.is_active])
+
+    @property
+    def total_lessons(self):
+        return sum(m.total_lessons for m in self.modules if m.is_active)
+
+    @property
+    def total_words(self):
+        return sum(m.total_words for m in self.modules if m.is_active)
 
 
 class Module(BaseModel):
@@ -42,8 +60,22 @@ class Module(BaseModel):
     lessons = relationship("Lesson", back_populates="module", cascade="all, delete-orphan",
                            order_by="Lesson.order_index")
 
+    # Indexes
+    __table_args__ = (
+        Index('idx_course_active', 'course_id', 'is_active'),
+        Index('idx_course_order', 'course_id', 'order_index'),
+    )
+
     def __str__(self):
         return f"Module({self.title})"
+
+    @property
+    def total_lessons(self):
+        return len([l for l in self.lessons if l.is_active])
+
+    @property
+    def total_words(self):
+        return sum(l.total_words for l in self.lessons if l.is_active)
 
 
 class Lesson(BaseModel):
@@ -66,12 +98,21 @@ class Lesson(BaseModel):
     progress_records = relationship("Progress", back_populates="lesson", cascade="all, delete-orphan")
     quiz_sessions = relationship("QuizSession", back_populates="lesson", cascade="all, delete-orphan")
 
+    # Indexes
+    __table_args__ = (
+        Index('idx_module_active', 'module_id', 'is_active'),
+        Index('idx_module_order', 'module_id', 'order_index'),
+    )
+
     def __str__(self):
         return f"Lesson({self.title})"
 
     @property
+    def total_words(self):
+        return len([w for w in self.words if w.is_active])
+
+    @property
     def has_content(self):
-        """Check if lesson has markdown content"""
         return bool(self.content and self.content.strip())
 
 
@@ -83,8 +124,6 @@ class Word(BaseModel):
     native_form = Column(String(100), nullable=False)  # Uzbek translation
     example_sentence = Column(Text)
     audio_url = Column(String(255))
-
-    # Simplified: single image URL instead of JSON array
     image_url = Column(String(255))
 
     # Status and ordering
@@ -98,10 +137,21 @@ class Word(BaseModel):
     # Relationships
     weak_words = relationship("WeakWord", back_populates="word", cascade="all, delete-orphan")
 
+    # Indexes
+    __table_args__ = (
+        Index('idx_lesson_active', 'lesson_id', 'is_active'),
+        Index('idx_lesson_order', 'lesson_id', 'order_index'),
+        Index('idx_foreign_form', 'foreign_form'),
+        Index('idx_native_form', 'native_form'),
+    )
+
     def __str__(self):
         return f"Word({self.foreign_form} → {self.native_form})"
 
     @property
     def has_image(self):
-        """Check if word has an image"""
         return bool(self.image_url)
+
+    @property
+    def has_audio(self):
+        return bool(self.audio_url)

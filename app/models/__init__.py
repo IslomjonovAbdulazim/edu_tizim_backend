@@ -1,11 +1,11 @@
-# Import all simplified models
+# Import all models
 from .base import BaseModel
-from .user import User, UserRole
+from .user import User, UserRole, UserCenterRole, StudentGroup
 from .learning_center import LearningCenter, Branch, Payment
 from .content import Course, Module, Lesson, Word
+from .group import Group
 from .learning import Progress, QuizSession, WeakWord
 from .gamification import LeaderboardEntry, LeaderboardType, UserBadge, BadgeCategory
-from .group import Group, student_groups
 from .verification import VerificationCode
 
 __all__ = [
@@ -15,6 +15,8 @@ __all__ = [
     # User system
     "User",
     "UserRole",
+    "UserCenterRole",
+    "StudentGroup",
 
     # Learning center & business
     "LearningCenter",
@@ -27,6 +29,9 @@ __all__ = [
     "Lesson",
     "Word",
 
+    # Group management
+    "Group",
+
     # Learning & progress
     "Progress",
     "QuizSession",
@@ -37,10 +42,6 @@ __all__ = [
     "LeaderboardType",
     "UserBadge",
     "BadgeCategory",
-
-    # Groups
-    "Group",
-    "student_groups",
 
     # Verification
     "VerificationCode"
