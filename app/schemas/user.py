@@ -124,7 +124,7 @@ class LoginResponse(BaseModel):
         return "verify_phone" if values.get('verification_required') else "access_dashboard"
 
 
-# User Statistics
+# User Statistics (simplified without badges)
 class UserStats(BaseModel):
     user_id: int = Field(..., gt=0)
     total_points: int = Field(0, ge=0)
@@ -133,7 +133,6 @@ class UserStats(BaseModel):
     weaklist_solved: int = Field(0, ge=0)
     position_improvements: int = Field(0, ge=0)
     current_streak: int = Field(0, ge=0)
-    badges_count: int = Field(0, ge=0)
     learning_days: int = Field(0, ge=0)
     average_accuracy: float = Field(0.0, ge=0.0, le=100.0)
     last_activity: Optional[str] = None

@@ -29,7 +29,6 @@ class User(BaseModel):
     progress_records = relationship("Progress", back_populates="user", cascade="all, delete-orphan")
     quiz_sessions = relationship("QuizSession", back_populates="user", cascade="all, delete-orphan")
     weak_words = relationship("WeakWord", back_populates="user", cascade="all, delete-orphan")
-    badges = relationship("UserBadge", back_populates="user", cascade="all, delete-orphan")
     leaderboard_entries = relationship("LeaderboardEntry", back_populates="user", cascade="all, delete-orphan")
 
     # Constraints

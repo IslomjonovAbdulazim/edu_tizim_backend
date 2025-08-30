@@ -5,7 +5,7 @@ from .learning_center import LearningCenter, Branch, Payment
 from .content import Course, Module, Lesson, Word
 from .group import Group
 from .learning import Progress, QuizSession, WeakWord
-from .gamification import LeaderboardEntry, LeaderboardType, UserBadge, BadgeCategory
+from .gamification import LeaderboardEntry, LeaderboardType
 from .verification import VerificationCode
 
 __all__ = [
@@ -37,11 +37,9 @@ __all__ = [
     "QuizSession",
     "WeakWord",
 
-    # Gamification - streamlined engagement
+    # Gamification - streamlined engagement (leaderboard only)
     "LeaderboardEntry",
     "LeaderboardType",
-    "UserBadge",
-    "BadgeCategory",
 
     # Verification - secure and simple
     "VerificationCode"
