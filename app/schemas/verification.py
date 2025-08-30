@@ -1,5 +1,13 @@
-from pydantic import BaseModel, Field, validator
-from typing import Optional
+from pydantic import BaseModel, Field, ConfigDict, field_validator
+class BaseSchema(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True,
+        str_strip_whitespace=True,
+        validate_assignment=True,
+    )
+
+
+from typing import Optional, List, Generic, TypeVar
 from datetime import datetime
 from .base import BaseSchema, TimestampMixin, PhoneNumberMixin
 
@@ -10,23 +18,30 @@ class VerificationCodeBase(BaseSchema):
     phone_number: str = Field(..., min_length=10, max_length=20, description="Phone number to verify")
     code: str = Field(..., min_length=4, max_length=10, regex="^[0-9]+$", description="Verification code")
 
-    @validator('telegram_id')
+    @field_validator('telegram_id')
     def validate_telegram_id(cls, v):
         if v < 10000:  # Telegram IDs are typically large numbers
             raise ValueError('Invalid Telegram ID format')
         return v
 
-    @validator('phone_number')
+    @field_validator('phone_number')
     def validate_phone_number(cls, v):
         return PhoneNumberMixin.validate_phone(v)
 
-    @validator('code')
+    @field_validator('code')
     def validate_code(cls, v):
         code = v.strip()
         if not code.isdigit():
             raise ValueError('Verification code must contain only digits')
         return code
 
+
+
+class VerificationCodeOut(VerificationCodeBase):
+    id: int = Field(..., gt=0, description="ID")
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    is_active: bool = True
 
 class VerificationCodeCreate(VerificationCodeBase):
     expires_in_minutes: int = Field(10, ge=1, le=60, description="Expiration time in minutes")
@@ -45,12 +60,12 @@ class VerificationCodeResponse(VerificationCodeBase, TimestampMixin):
     time_remaining_minutes: int = Field(0, ge=0, description="Minutes remaining until expiration")
     attempts_remaining: int = Field(0, ge=0, description="Attempts remaining")
 
-    @validator('is_expired', pre=True, always=True)
+    @field_validator('is_expired', mode='before', validate_default=True)
     def set_is_expired(cls, v, values):
         expires_at = values.get('expires_at')
         return expires_at < datetime.utcnow() if expires_at else True
 
-    @validator('is_valid', pre=True, always=True)
+    @field_validator('is_valid', mode='before', validate_default=True)
     def set_is_valid(cls, v, values):
         is_active = values.get('is_active', False)
         is_used = values.get('is_used', False)
@@ -60,7 +75,7 @@ class VerificationCodeResponse(VerificationCodeBase, TimestampMixin):
 
         return (is_active and not is_used and not is_expired and attempts < max_attempts)
 
-    @validator('can_retry', pre=True, always=True)
+    @field_validator('can_retry', mode='before', validate_default=True)
     def set_can_retry(cls, v, values):
         attempts = values.get('attempts', 0)
         max_attempts = values.get('max_attempts', 3)
@@ -69,7 +84,7 @@ class VerificationCodeResponse(VerificationCodeBase, TimestampMixin):
 
         return attempts < max_attempts and not is_expired and is_active
 
-    @validator('time_remaining_minutes', pre=True, always=True)
+    @field_validator('time_remaining_minutes', mode='before', validate_default=True)
     def calculate_time_remaining(cls, v, values):
         expires_at = values.get('expires_at')
         if expires_at and expires_at > datetime.utcnow():
@@ -77,7 +92,7 @@ class VerificationCodeResponse(VerificationCodeBase, TimestampMixin):
             return max(0, int(delta.total_seconds() / 60))
         return 0
 
-    @validator('attempts_remaining', pre=True, always=True)
+    @field_validator('attempts_remaining', mode='before', validate_default=True)
     def calculate_attempts_remaining(cls, v, values):
         attempts = values.get('attempts', 0)
         max_attempts = values.get('max_attempts', 3)
@@ -91,18 +106,18 @@ class SendVerificationRequest(BaseModel, PhoneNumberMixin):
     phone_number: str = Field(..., min_length=10, max_length=20, description="Phone number to verify")
     learning_center_id: int = Field(..., gt=0, description="Learning center ID for validation")
 
-    @validator('telegram_id')
+    @field_validator('telegram_id')
     def validate_telegram_id(cls, v):
         if v < 10000:
             raise ValueError('Invalid Telegram ID format')
         return v
 
-    @validator('phone_number')
+    @field_validator('phone_number')
     def validate_phone_number(cls, v):
         return cls.validate_phone(v)
 
 
-class SendVerificationResponse(BaseModel):
+class SendVerificationResponse(BaseSchema):
     """Response after sending verification code"""
     success: bool = Field(..., description="Whether code was sent successfully")
     message: str = Field(..., description="Status message")
@@ -114,7 +129,7 @@ class SendVerificationResponse(BaseModel):
     # Rate limiting info
     next_code_allowed_at: Optional[datetime] = Field(None, description="When next code can be requested")
 
-    @validator('message')
+    @field_validator('message')
     def validate_message(cls, v, values):
         success = values.get('success', False)
         if success and not v:
@@ -131,17 +146,17 @@ class VerifyCodeRequest(BaseModel, PhoneNumberMixin):
     code: str = Field(..., min_length=4, max_length=10, regex="^[0-9]+$", description="Verification code")
     learning_center_id: int = Field(..., gt=0, description="Learning center ID for validation")
 
-    @validator('telegram_id')
+    @field_validator('telegram_id')
     def validate_telegram_id(cls, v):
         if v < 10000:
             raise ValueError('Invalid Telegram ID')
         return v
 
-    @validator('phone_number')
+    @field_validator('phone_number')
     def validate_phone_number(cls, v):
         return self.validate_phone(v)
 
-    @validator('code')
+    @field_validator('code')
     def validate_code(cls, v):
         code = v.strip()
         if not code.isdigit():
@@ -151,7 +166,7 @@ class VerifyCodeRequest(BaseModel, PhoneNumberMixin):
         return code
 
 
-class VerifyCodeResponse(BaseModel):
+class VerifyCodeResponse(BaseSchema):
     """Response after code verification attempt"""
     success: bool = Field(..., description="Whether verification was successful")
     message: str = Field(..., description="Verification result message")
@@ -164,7 +179,7 @@ class VerifyCodeResponse(BaseModel):
     next_step: str = Field("", description="What user should do next")
     access_token: Optional[str] = Field(None, description="Access token if applicable")
 
-    @validator('next_step', pre=True, always=True)
+    @field_validator('next_step', mode='before', validate_default=True)
     def set_next_step(cls, v, values):
         success = values.get('success', False)
         user_verified = values.get('user_verified', False)
@@ -178,7 +193,7 @@ class VerifyCodeResponse(BaseModel):
         else:
             return "request_new_code"
 
-    @validator('message')
+    @field_validator('message')
     def validate_message(cls, v, values):
         success = values.get('success', False)
         user_verified = values.get('user_verified', False)
@@ -203,7 +218,7 @@ class ResendCodeRequest(BaseModel, PhoneNumberMixin):
     phone_number: str = Field(..., min_length=10, max_length=20, description="Phone number")
     learning_center_id: int = Field(..., gt=0, description="Learning center ID")
 
-    @validator('phone_number')
+    @field_validator('phone_number')
     def validate_phone_number(cls, v):
         return cls.validate_phone(v)
 
@@ -213,12 +228,12 @@ class VerificationStatusRequest(BaseModel, PhoneNumberMixin):
     telegram_id: int = Field(..., gt=0, description="Telegram user ID")
     phone_number: str = Field(..., min_length=10, max_length=20, description="Phone number")
 
-    @validator('phone_number')
+    @field_validator('phone_number')
     def validate_phone_number(cls, v):
         return cls.validate_phone(v)
 
 
-class VerificationStatusResponse(BaseModel):
+class VerificationStatusResponse(BaseSchema):
     """Current verification status"""
     has_valid_code: bool = Field(..., description="Whether user has a valid code")
     attempts_remaining: int = Field(..., ge=0, description="Remaining attempts for current code")
@@ -236,7 +251,7 @@ class VerificationStatusResponse(BaseModel):
 
 
 # Admin and Analytics
-class VerificationAnalytics(BaseModel):
+class VerificationAnalytics(BaseSchema):
     """Verification system analytics"""
     date_range: str = Field(..., description="Analytics date range")
 
@@ -255,13 +270,13 @@ class VerificationAnalytics(BaseModel):
     invalid_phone_numbers: int = Field(..., ge=0, description="Invalid phone number attempts")
 
 
-class VerificationCleanupRequest(BaseModel):
+class VerificationCleanupRequest(BaseSchema):
     """Request to cleanup old verification codes"""
     days_old: int = Field(7, ge=1, le=90, description="Delete codes older than this many days")
     dry_run: bool = Field(True, description="Whether to do a dry run first")
 
 
-class VerificationCleanupResponse(BaseModel):
+class VerificationCleanupResponse(BaseSchema):
     """Response from cleanup operation"""
     codes_deleted: int = Field(..., ge=0, description="Number of codes deleted")
     codes_found: int = Field(..., ge=0, description="Number of codes found for deletion")
@@ -270,7 +285,7 @@ class VerificationCleanupResponse(BaseModel):
 
 
 # Rate Limiting
-class RateLimitStatus(BaseModel):
+class RateLimitStatus(BaseSchema):
     """Rate limit status for verification requests"""
     telegram_id: int = Field(..., gt=0)
     can_send: bool = Field(..., description="Whether user can send code now")
@@ -283,12 +298,12 @@ class RateLimitStatus(BaseModel):
 
 
 # Phone Number Validation
-class PhoneValidationRequest(BaseModel):
+class PhoneValidationRequest(BaseSchema):
     """Request to validate phone number format"""
     phone_number: str = Field(..., min_length=5, max_length=25, description="Phone number to validate")
 
 
-class PhoneValidationResponse(BaseModel):
+class PhoneValidationResponse(BaseSchema):
     """Phone number validation response"""
     is_valid: bool = Field(..., description="Whether phone number is valid")
     formatted_number: Optional[str] = Field(None, description="Formatted phone number")
@@ -296,3 +311,16 @@ class PhoneValidationResponse(BaseModel):
     carrier: Optional[str] = Field(None, description="Detected carrier (if available)")
     number_type: Optional[str] = Field(None, description="Number type (mobile, landline, etc.)")
     error_message: Optional[str] = Field(None, description="Error message if invalid")
+
+# === Standard response wrappers ===
+T = TypeVar('T')
+class ResponseEnvelope(Generic[T], BaseSchema):
+    data: T
+    meta: Optional[dict] = None
+
+class Paginated(Generic[T], BaseSchema):
+    items: List[T]
+    total: int
+    page: int
+    size: int
+    has_next: bool

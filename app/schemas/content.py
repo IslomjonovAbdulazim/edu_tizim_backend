@@ -1,5 +1,14 @@
-from pydantic import BaseModel, Field, validator, HttpUrl
-from typing import Optional, List
+from datetime import datetime
+from pydantic import BaseModel, Field, HttpUrl, ConfigDict, field_validator
+class BaseSchema(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True,
+        str_strip_whitespace=True,
+        validate_assignment=True,
+    )
+
+
+from typing import Optional, List, Generic, TypeVar
 from enum import Enum
 from .base import BaseSchema, TimestampMixin
 
@@ -17,16 +26,23 @@ class CourseBase(BaseSchema):
     level: CourseLevel = Field(CourseLevel.BEGINNER, description="Course difficulty level")
     order_index: int = Field(0, ge=0, description="Display order")
 
-    @validator('name')
+    @field_validator('name')
     def validate_name(cls, v):
         return v.strip()
 
+
+
+class CourseOut(CourseBase):
+    id: int = Field(..., gt=0, description="ID")
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    is_active: bool = True
 
 class CourseCreate(CourseBase):
     learning_center_id: int = Field(..., gt=0, description="Learning center ID")
 
 
-class CourseUpdate(BaseModel):
+class CourseUpdate(BaseSchema):
     name: Optional[str] = Field(None, min_length=2, max_length=100)
     description: Optional[str] = Field(None, max_length=1000)
     level: Optional[CourseLevel] = None
@@ -45,12 +61,19 @@ class CourseResponse(CourseBase, TimestampMixin):
 
 
 # Module Schemas
+
+class ModuleOut(ModuleBase):
+    id: int = Field(..., gt=0, description="ID")
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    is_active: bool = True
+
 class ModuleBase(BaseSchema):
     title: str = Field(..., min_length=2, max_length=100, description="Module title")
     description: Optional[str] = Field(None, max_length=1000, description="Module description")
     order_index: int = Field(0, ge=0, description="Display order within course")
 
-    @validator('title')
+    @field_validator('title')
     def validate_title(cls, v):
         return v.strip()
 
@@ -59,7 +82,7 @@ class ModuleCreate(ModuleBase):
     course_id: int = Field(..., gt=0, description="Course ID")
 
 
-class ModuleUpdate(BaseModel):
+class ModuleUpdate(BaseSchema):
     title: Optional[str] = Field(None, min_length=2, max_length=100)
     description: Optional[str] = Field(None, max_length=1000)
     order_index: Optional[int] = Field(None, ge=0)
@@ -76,13 +99,20 @@ class ModuleResponse(ModuleBase, TimestampMixin):
 
 
 # Lesson Schemas
+
+class LessonOut(LessonBase):
+    id: int = Field(..., gt=0, description="ID")
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    is_active: bool = True
+
 class LessonBase(BaseSchema):
     title: str = Field(..., min_length=2, max_length=100, description="Lesson title")
     description: Optional[str] = Field(None, max_length=1000, description="Lesson description")
     content: Optional[str] = Field(None, max_length=10000, description="Lesson content (Markdown)")
     order_index: int = Field(0, ge=0, description="Display order within module")
 
-    @validator('title')
+    @field_validator('title')
     def validate_title(cls, v):
         return v.strip()
 
@@ -91,13 +121,20 @@ class LessonCreate(LessonBase):
     module_id: int = Field(..., gt=0, description="Module ID")
 
 
-class LessonUpdate(BaseModel):
+class LessonUpdate(BaseSchema):
     title: Optional[str] = Field(None, min_length=2, max_length=100)
     description: Optional[str] = Field(None, max_length=1000)
     content: Optional[str] = Field(None, max_length=10000)
     order_index: Optional[int] = Field(None, ge=0)
     is_active: Optional[bool] = None
 
+
+
+class WordOut(WordBase):
+    id: int = Field(..., gt=0, description="ID")
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    is_active: bool = True
 
 class LessonResponse(LessonBase, TimestampMixin):
     module_id: int = Field(..., gt=0)
@@ -117,7 +154,7 @@ class WordBase(BaseSchema):
     image_url: Optional[HttpUrl] = Field(None, description="Visual reference image URL")
     order_index: int = Field(0, ge=0, description="Display order within lesson")
 
-    @validator('foreign_form', 'native_form')
+    @field_validator('foreign_form', 'native_form')
     def validate_word_forms(cls, v):
         return v.strip()
 
@@ -126,7 +163,7 @@ class WordCreate(WordBase):
     lesson_id: int = Field(..., gt=0, description="Lesson ID")
 
 
-class WordUpdate(BaseModel):
+class WordUpdate(BaseSchema):
     foreign_form: Optional[str] = Field(None, min_length=1, max_length=100)
     native_form: Optional[str] = Field(None, min_length=1, max_length=100)
     example_sentence: Optional[str] = Field(None, max_length=500)
@@ -186,12 +223,12 @@ class CourseWithFullContent(CourseResponse):
 
 
 # Bulk Operations
-class WordBulkCreate(BaseModel):
+class WordBulkCreate(BaseSchema):
     """Bulk create words for a lesson"""
     lesson_id: int = Field(..., gt=0, description="Target lesson ID")
     words: List[WordBase] = Field(..., min_items=1, max_items=100, description="Words to create")
 
-    @validator('words')
+    @field_validator('words')
     def validate_unique_words(cls, words):
         foreign_forms = [w.foreign_form.lower() for w in words]
         if len(foreign_forms) != len(set(foreign_forms)):
@@ -199,11 +236,11 @@ class WordBulkCreate(BaseModel):
         return words
 
 
-class WordBulkUpdate(BaseModel):
+class WordBulkUpdate(BaseSchema):
     """Bulk update words"""
     updates: List[dict] = Field(..., min_items=1, max_items=100, description="Word updates with IDs")
 
-    @validator('updates')
+    @field_validator('updates')
     def validate_updates(cls, updates):
         for update in updates:
             if 'id' not in update:
@@ -211,7 +248,7 @@ class WordBulkUpdate(BaseModel):
         return updates
 
 
-class WordImportRequest(BaseModel):
+class WordImportRequest(BaseSchema):
     """Import words from file or external source"""
     lesson_id: int = Field(..., gt=0)
     source_type: str = Field(..., regex="^(csv|json|xlsx)$")
@@ -220,7 +257,7 @@ class WordImportRequest(BaseModel):
 
 
 # Search and Query Schemas
-class ContentSearchRequest(BaseModel):
+class ContentSearchRequest(BaseSchema):
     """Search across content"""
     query: str = Field(..., min_length=1, max_length=100)
     learning_center_id: int = Field(..., gt=0)
@@ -229,7 +266,7 @@ class ContentSearchRequest(BaseModel):
     limit: int = Field(20, ge=1, le=100)
 
 
-class WordSearchRequest(BaseModel):
+class WordSearchRequest(BaseSchema):
     """Search words specifically"""
     query: str = Field(..., min_length=1, max_length=100)
     lesson_id: Optional[int] = Field(None, gt=0)
@@ -241,7 +278,7 @@ class WordSearchRequest(BaseModel):
 
 
 # Content Analytics
-class ContentStatistics(BaseModel):
+class ContentStatistics(BaseSchema):
     """Content usage statistics"""
     learning_center_id: int = Field(..., gt=0)
     total_courses: int = Field(0, ge=0)
@@ -251,3 +288,16 @@ class ContentStatistics(BaseModel):
     most_popular_course: Optional[str] = None
     average_completion_rate: float = Field(0.0, ge=0.0, le=100.0)
     content_engagement_score: float = Field(0.0, ge=0.0, le=100.0)
+
+# === Standard response wrappers ===
+T = TypeVar('T')
+class ResponseEnvelope(Generic[T], BaseSchema):
+    data: T
+    meta: Optional[dict] = None
+
+class Paginated(Generic[T], BaseSchema):
+    items: List[T]
+    total: int
+    page: int
+    size: int
+    has_next: bool

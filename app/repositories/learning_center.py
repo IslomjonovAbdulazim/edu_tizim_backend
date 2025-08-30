@@ -60,7 +60,7 @@ class LearningCenterRepository(BaseRepository):
             # Reactivate if was expired
             if not center.is_active and center.remaining_days > 0:
                 center.is_active = True
-            self.db.commit()
+            self._commit()
             self.db.refresh(center)
         return center
 
@@ -72,7 +72,7 @@ class LearningCenterRepository(BaseRepository):
             # Block if expired
             if center.remaining_days <= 0:
                 center.is_active = False
-            self.db.commit()
+            self._commit()
             self.db.refresh(center)
         return center
 
@@ -81,7 +81,7 @@ class LearningCenterRepository(BaseRepository):
         center = self.get(center_id)
         if center:
             center.is_active = False
-            self.db.commit()
+            self._commit()
             self.db.refresh(center)
         return center
 
@@ -92,7 +92,7 @@ class LearningCenterRepository(BaseRepository):
         ).first()
         if center and center.remaining_days > 0:
             center.is_active = True
-            self.db.commit()
+            self._commit()
             self.db.refresh(center)
         return center
 
@@ -158,7 +158,7 @@ class LearningCenterRepository(BaseRepository):
                 center.max_students = max_students
             if max_branches is not None:
                 center.max_branches = max_branches
-            self.db.commit()
+            self._commit()
             self.db.refresh(center)
         return center
 

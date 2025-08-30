@@ -1,5 +1,13 @@
-from pydantic import BaseModel, Field, validator
-from typing import Optional, Dict, List
+from pydantic import BaseModel, Field, ConfigDict, field_validator
+class BaseSchema(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True,
+        str_strip_whitespace=True,
+        validate_assignment=True,
+    )
+
+
+from typing import Optional, Dict, List, Generic, TypeVar
 from datetime import datetime
 from enum import Enum
 from .base import BaseSchema, TimestampMixin
@@ -19,17 +27,24 @@ class ProgressBase(BaseSchema):
     points: int = Field(0, ge=0, description="Points earned from this lesson")
 
 
+
+class ProgressOut(ProgressBase):
+    id: int = Field(..., gt=0, description="ID")
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    is_active: bool = True
+
 class ProgressCreate(ProgressBase):
     pass
 
 
-class ProgressUpdate(BaseModel):
+class ProgressUpdate(BaseSchema):
     completion_percentage: Optional[float] = Field(None, ge=0.0, le=100.0)
     points: Optional[int] = Field(None, ge=0)
     total_attempts: Optional[int] = Field(None, ge=0)
     correct_answers: Optional[int] = Field(None, ge=0)
 
-    @validator('correct_answers')
+    @field_validator('correct_answers')
     def validate_correct_answers(cls, v, values):
         total = values.get('total_attempts')
         if v is not None and total is not None and v > total:
@@ -46,7 +61,7 @@ class ProgressResponse(ProgressBase, TimestampMixin):
     # Computed fields
     accuracy: float = Field(0.0, ge=0.0, le=100.0, description="Overall accuracy percentage")
 
-    @validator('accuracy', pre=True, always=True)
+    @field_validator('accuracy', mode='before', validate_default=True)
     def calculate_accuracy(cls, v, values):
         total = values.get('total_attempts', 0)
         correct = values.get('correct_answers', 0)
@@ -54,6 +69,13 @@ class ProgressResponse(ProgressBase, TimestampMixin):
 
 
 # Quiz Session Schemas
+
+class QuizSessionOut(QuizSessionBase):
+    id: int = Field(..., gt=0, description="ID")
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    is_active: bool = True
+
 class QuizSessionBase(BaseSchema):
     user_id: int = Field(..., gt=0, description="User ID")
     lesson_id: Optional[int] = Field(None, gt=0, description="Lesson ID (optional for practice quizzes)")
@@ -63,13 +85,13 @@ class QuizSessionCreate(QuizSessionBase):
     pass
 
 
-class QuizSessionUpdate(BaseModel):
+class QuizSessionUpdate(BaseSchema):
     quiz_results: Optional[Dict[int, bool]] = Field(None, description="Word ID to correct/incorrect mapping")
     total_questions: Optional[int] = Field(None, ge=0)
     correct_answers: Optional[int] = Field(None, ge=0)
     is_completed: Optional[bool] = None
 
-    @validator('correct_answers')
+    @field_validator('correct_answers')
     def validate_correct_answers(cls, v, values):
         total = values.get('total_questions')
         if v is not None and total is not None and v > total:
@@ -90,13 +112,13 @@ class QuizSessionResponse(QuizSessionBase, TimestampMixin):
     accuracy: float = Field(0.0, ge=0.0, le=100.0, description="Quiz accuracy percentage")
     duration_minutes: Optional[float] = Field(None, ge=0.0, description="Quiz duration in minutes")
 
-    @validator('accuracy', pre=True, always=True)
+    @field_validator('accuracy', mode='before', validate_default=True)
     def calculate_accuracy(cls, v, values):
         total = values.get('total_questions', 0)
         correct = values.get('correct_answers', 0)
         return round((correct / total * 100), 1) if total > 0 else 0.0
 
-    @validator('duration_minutes', pre=True, always=True)
+    @field_validator('duration_minutes', mode='before', validate_default=True)
     def calculate_duration(cls, v, values):
         start = values.get('started_at')
         end = values.get('completed_at')
@@ -107,20 +129,20 @@ class QuizSessionResponse(QuizSessionBase, TimestampMixin):
 
 
 # Quiz Submission and Results
-class QuizSubmission(BaseModel):
+class QuizSubmission(BaseSchema):
     """Submit quiz results"""
     user_id: int = Field(..., gt=0)
     lesson_id: int = Field(..., gt=0)
     word_results: Dict[int, bool] = Field(..., min_items=1, description="Word ID to correct/incorrect mapping")
 
-    @validator('word_results')
+    @field_validator('word_results')
     def validate_word_results(cls, v):
         if not v:
             raise ValueError('Quiz must have at least one word result')
         return v
 
 
-class QuizResult(BaseModel):
+class QuizResult(BaseSchema):
     """Quiz completion result"""
     points_earned: int = Field(..., ge=0, description="Points earned from quiz")
     completion_percentage: float = Field(..., ge=0.0, le=100.0, description="Completion percentage")
@@ -131,11 +153,11 @@ class QuizResult(BaseModel):
     is_perfect: bool = Field(False, description="Whether quiz was completed with 100% accuracy")
     is_improvement: bool = Field(False, description="Whether this improved previous score")
 
-    @validator('is_perfect', pre=True, always=True)
+    @field_validator('is_perfect', mode='before', validate_default=True)
     def set_is_perfect(cls, v, values):
         return values.get('accuracy', 0) == 100.0
 
-    @validator('correct_answers')
+    @field_validator('correct_answers')
     def validate_correct_answers(cls, v, values):
         total = values.get('total_questions', 0)
         if v > total:
@@ -144,6 +166,13 @@ class QuizResult(BaseModel):
 
 
 # Weak Word Schemas
+
+class WeakWordOut(WeakWordBase):
+    id: int = Field(..., gt=0, description="ID")
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    is_active: bool = True
+
 class WeakWordBase(BaseSchema):
     user_id: int = Field(..., gt=0, description="User ID")
     word_id: int = Field(..., gt=0, description="Word ID")
@@ -153,7 +182,7 @@ class WeakWordCreate(WeakWordBase):
     is_correct: bool = Field(..., description="Whether the first attempt was correct")
 
 
-class WeakWordUpdate(BaseModel):
+class WeakWordUpdate(BaseSchema):
     last_7_results: Optional[str] = Field(None, max_length=7, regex="^[01]*$",
                                           description="Last 7 attempts as binary string")
     strength: Optional[WordStrength] = None
@@ -171,7 +200,7 @@ class WeakWordResponse(WeakWordBase, TimestampMixin):
     recent_accuracy: float = Field(0.0, ge=0.0, le=100.0, description="Accuracy from last 7 attempts")
     overall_accuracy: float = Field(0.0, ge=0.0, le=100.0, description="Overall accuracy")
 
-    @validator('recent_accuracy', pre=True, always=True)
+    @field_validator('recent_accuracy', mode='before', validate_default=True)
     def calculate_recent_accuracy(cls, v, values):
         results = values.get('last_7_results', '')
         if not results:
@@ -179,7 +208,7 @@ class WeakWordResponse(WeakWordBase, TimestampMixin):
         correct = results.count('1')
         return round((correct / len(results) * 100), 1)
 
-    @validator('overall_accuracy', pre=True, always=True)
+    @field_validator('overall_accuracy', mode='before', validate_default=True)
     def calculate_overall_accuracy(cls, v, values):
         total = values.get('total_attempts', 0)
         correct = values.get('correct_attempts', 0)
@@ -197,7 +226,7 @@ class WeakWordWithDetails(WeakWordResponse):
 
 
 # Learning Analytics
-class UserLearningStats(BaseModel):
+class UserLearningStats(BaseSchema):
     """Comprehensive user learning statistics"""
     user_id: int = Field(..., gt=0)
 
@@ -223,20 +252,20 @@ class UserLearningStats(BaseModel):
     study_time_minutes: Optional[int] = Field(None, ge=0, description="Total study time in minutes")
     last_activity: Optional[datetime] = Field(None, description="Last learning activity")
 
-    @validator('completion_rate', pre=True, always=True)
+    @field_validator('completion_rate', mode='before', validate_default=True)
     def calculate_completion_rate(cls, v, values):
         total = values.get('total_lessons', 0)
         completed = values.get('completed_lessons', 0)
         return round((completed / total * 100), 1) if total > 0 else 0.0
 
-    @validator('vocabulary_strength', pre=True, always=True)
+    @field_validator('vocabulary_strength', mode='before', validate_default=True)
     def calculate_vocabulary_strength(cls, v, values):
         total = values.get('total_words_encountered', 0)
         strong = values.get('strong_words_count', 0)
         return round((strong / total * 100), 1) if total > 0 else 0.0
 
 
-class LessonStats(BaseModel):
+class LessonStats(BaseSchema):
     """Lesson statistics across all users"""
     lesson_id: int = Field(..., gt=0)
     lesson_title: str = Field(..., description="Lesson title")
@@ -259,7 +288,7 @@ class LessonStats(BaseModel):
 
 
 # Practice and Review
-class PracticeRequest(BaseModel):
+class PracticeRequest(BaseSchema):
     """Request for practice words"""
     user_id: int = Field(..., gt=0)
     max_words: int = Field(20, ge=1, le=50, description="Maximum words for practice")
@@ -269,10 +298,23 @@ class PracticeRequest(BaseModel):
     module_id: Optional[int] = Field(None, gt=0, description="Limit to specific module")
 
 
-class PracticeSession(BaseModel):
+class PracticeSession(BaseSchema):
     """Practice session response"""
     user_id: int = Field(..., gt=0)
     words: List[WeakWordWithDetails] = Field(..., description="Words for practice")
     session_type: str = Field("practice", description="Type of practice session")
     estimated_duration: int = Field(..., ge=0, description="Estimated duration in minutes")
     difficulty_level: str = Field("mixed", description="Overall difficulty level")
+
+# === Standard response wrappers ===
+T = TypeVar('T')
+class ResponseEnvelope(Generic[T], BaseSchema):
+    data: T
+    meta: Optional[dict] = None
+
+class Paginated(Generic[T], BaseSchema):
+    items: List[T]
+    total: int
+    page: int
+    size: int
+    has_next: bool

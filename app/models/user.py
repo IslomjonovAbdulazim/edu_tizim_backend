@@ -1,4 +1,18 @@
-from sqlalchemy import Column, String, Boolean, Integer, ForeignKey, BigInteger, UniqueConstraint, Index, CheckConstraint
+from sqlalchemy import (
+    Column, String, Boolean, Integer, ForeignKey, BigInteger,
+    Index, CheckConstraint, MetaData, text
+)
+
+from sqlalchemy import MetaData
+# SQLAlchemy naming convention to stabilize Alembic diffs
+naming_convention = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s",
+}
+
 from sqlalchemy.orm import relationship
 from enum import Enum
 from .base import BaseModel
@@ -69,7 +83,12 @@ class UserCenterRole(BaseModel):
 
     # Constraints - one role per user per center
     __table_args__ = (
-        UniqueConstraint('user_id', 'learning_center_id', name='uq_user_center'),
+        Index(
+            'uq_usercenterrole_user_center_active',
+            'user_id', 'learning_center_id',
+            unique=True,
+            postgresql_where=text('is_active')
+        ),
         Index('idx_usercenterrole_center_role', 'learning_center_id', 'role'),
         Index('idx_usercenterrole_user_center', 'user_id', 'learning_center_id'),
     )
@@ -91,7 +110,12 @@ class StudentGroup(BaseModel):
 
     # Constraints
     __table_args__ = (
-        UniqueConstraint('user_id', 'group_id', name='uq_student_group'),
+        Index(
+            'uq_studentgroup_user_group_active',
+            'user_id', 'group_id',
+            unique=True,
+            postgresql_where=text('is_active')
+        ),
         Index('idx_studentgroup_group_active', 'group_id', 'is_active'),
         Index('idx_studentgroup_user_active', 'user_id', 'is_active'),
     )

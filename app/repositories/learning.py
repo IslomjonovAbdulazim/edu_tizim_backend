@@ -80,7 +80,7 @@ class ProgressRepository(BaseRepository):
                 progress.correct_answers += correct_answers
                 progress.total_attempts += total_attempts
 
-            self.db.commit()
+            self._commit()
             self.db.refresh(progress)
         else:
             # Create new progress record
@@ -350,7 +350,7 @@ class WeakWordRepository(BaseRepository):
         if weak_word:
             # Update existing record
             weak_word.add_attempt(is_correct)
-            self.db.commit()
+            self._commit()
             self.db.refresh(weak_word)
         else:
             # Create new record

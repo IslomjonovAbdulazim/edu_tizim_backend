@@ -1,6 +1,14 @@
-from pydantic import BaseModel, Field, validator
-from typing import Optional, List
-from datetime import date
+from pydantic import BaseModel, Field, ConfigDict, field_validator
+class BaseSchema(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True,
+        str_strip_whitespace=True,
+        validate_assignment=True,
+    )
+
+
+from typing import Optional, List, Generic, TypeVar
+from datetime import date, datetime
 from enum import Enum
 from .base import BaseSchema, TimestampMixin
 
@@ -21,12 +29,19 @@ class LeaderboardEntryBase(BaseSchema):
     user_full_name: str = Field(..., min_length=1, max_length=100, description="User's full name")
 
 
+
+class LeaderboardEntryOut(LeaderboardEntryBase):
+    id: int = Field(..., gt=0, description="ID")
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    is_active: bool = True
+
 class LeaderboardEntryCreate(LeaderboardEntryBase):
     group_id: Optional[int] = Field(None, gt=0, description="Group ID (for group leaderboards)")
     leaderboard_date: Optional[date] = Field(None, description="Date for daily leaderboards")
     previous_rank: Optional[int] = Field(None, gt=0, description="Previous rank for comparison")
 
-    @validator('group_id')
+    @field_validator('group_id')
     def validate_group_id(cls, v, values):
         leaderboard_type = values.get('leaderboard_type')
         if leaderboard_type in [LeaderboardType.GROUP_3_DAILY, LeaderboardType.GROUP_ALL_TIME]:
@@ -34,7 +49,7 @@ class LeaderboardEntryCreate(LeaderboardEntryBase):
                 raise ValueError('Group ID is required for group leaderboards')
         return v
 
-    @validator('leaderboard_date')
+    @field_validator('leaderboard_date')
     def validate_leaderboard_date(cls, v, values):
         leaderboard_type = values.get('leaderboard_type')
         if leaderboard_type in [LeaderboardType.GLOBAL_3_DAILY, LeaderboardType.GROUP_3_DAILY]:
@@ -45,7 +60,7 @@ class LeaderboardEntryCreate(LeaderboardEntryBase):
         return v
 
 
-class LeaderboardEntryUpdate(BaseModel):
+class LeaderboardEntryUpdate(BaseSchema):
     rank: Optional[int] = Field(None, gt=0)
     points: Optional[int] = Field(None, ge=0)
     user_full_name: Optional[str] = Field(None, min_length=1, max_length=100)
@@ -62,7 +77,7 @@ class LeaderboardEntryResponse(LeaderboardEntryBase, TimestampMixin):
     is_improved: bool = Field(False, description="Whether position improved")
     rank_badge: str = Field("", description="Rank display with emoji")
 
-    @validator('position_change', pre=True, always=True)
+    @field_validator('position_change', mode='before', validate_default=True)
     def calculate_position_change(cls, v, values):
         current = values.get('rank')
         previous = values.get('previous_rank')
@@ -70,15 +85,15 @@ class LeaderboardEntryResponse(LeaderboardEntryBase, TimestampMixin):
             return previous - current  # Positive = improvement (lower rank number)
         return 0
 
-    @validator('is_top_3', pre=True, always=True)
+    @field_validator('is_top_3', mode='before', validate_default=True)
     def set_is_top_3(cls, v, values):
         return values.get('rank', 0) <= 3
 
-    @validator('is_improved', pre=True, always=True)
+    @field_validator('is_improved', mode='before', validate_default=True)
     def set_is_improved(cls, v, values):
         return values.get('position_change', 0) > 0
 
-    @validator('rank_badge', pre=True, always=True)
+    @field_validator('rank_badge', mode='before', validate_default=True)
     def set_rank_badge(cls, v, values):
         rank = values.get('rank', 0)
         if rank == 1:
@@ -94,7 +109,7 @@ class LeaderboardEntryResponse(LeaderboardEntryBase, TimestampMixin):
 
 
 # Leaderboard Query and Response
-class LeaderboardQuery(BaseModel):
+class LeaderboardQuery(BaseSchema):
     """Query parameters for leaderboard"""
     leaderboard_type: LeaderboardType = Field(..., description="Type of leaderboard to fetch")
     group_id: Optional[int] = Field(None, gt=0, description="Group ID (required for group leaderboards)")
@@ -102,7 +117,7 @@ class LeaderboardQuery(BaseModel):
     limit: int = Field(50, ge=1, le=100, description="Maximum entries to return")
     user_id: Optional[int] = Field(None, gt=0, description="Specific user to highlight")
 
-    @validator('group_id')
+    @field_validator('group_id')
     def validate_group_id(cls, v, values):
         leaderboard_type = values.get('leaderboard_type')
         if leaderboard_type in [LeaderboardType.GROUP_3_DAILY, LeaderboardType.GROUP_ALL_TIME]:
@@ -111,7 +126,7 @@ class LeaderboardQuery(BaseModel):
         return v
 
 
-class LeaderboardResponse(BaseModel):
+class LeaderboardResponse(BaseSchema):
     """Complete leaderboard response"""
     leaderboard_type: LeaderboardType = Field(..., description="Type of leaderboard")
     group_id: Optional[int] = Field(None, gt=0, description="Group ID if applicable")
@@ -121,14 +136,14 @@ class LeaderboardResponse(BaseModel):
     total_participants: int = Field(0, ge=0, description="Total number of participants")
     last_updated: Optional[date] = Field(None, description="When leaderboard was last updated")
 
-    @validator('total_participants', pre=True, always=True)
+    @field_validator('total_participants', mode='before', validate_default=True)
     def set_total_participants(cls, v, values):
         entries = values.get('entries', [])
         return len(entries)
 
 
 # Game Statistics (simplified without badges)
-class GameStats(BaseModel):
+class GameStats(BaseSchema):
     """Comprehensive gamification statistics"""
     user_id: int = Field(..., gt=0)
 
@@ -151,7 +166,7 @@ class GameStats(BaseModel):
 
 
 # Admin and Management
-class LeaderboardUpdateRequest(BaseModel):
+class LeaderboardUpdateRequest(BaseSchema):
     """Request to update leaderboard (admin)"""
     leaderboard_type: LeaderboardType = Field(..., description="Leaderboard to update")
     group_id: Optional[int] = Field(None, gt=0, description="Group ID if applicable")
@@ -159,7 +174,7 @@ class LeaderboardUpdateRequest(BaseModel):
 
 
 # Leaderboard Analytics
-class LeaderboardAnalytics(BaseModel):
+class LeaderboardAnalytics(BaseSchema):
     """Leaderboard engagement analytics"""
     leaderboard_type: LeaderboardType = Field(..., description="Leaderboard type")
     date_range: str = Field(..., description="Analytics date range")
@@ -179,7 +194,7 @@ class LeaderboardAnalytics(BaseModel):
     peak_competition_hours: List[int] = Field(default_factory=list, description="Hours with most activity")
 
 
-class UserLeaderboardSummary(BaseModel):
+class UserLeaderboardSummary(BaseSchema):
     """User's leaderboard summary across all boards"""
     user_id: int = Field(..., gt=0)
     user_full_name: str = Field(..., min_length=1)
@@ -196,3 +211,16 @@ class UserLeaderboardSummary(BaseModel):
     days_in_top_10: int = Field(0, ge=0)
     days_in_top_3: int = Field(0, ge=0)
     times_ranked_first: int = Field(0, ge=0)
+
+# === Standard response wrappers ===
+T = TypeVar('T')
+class ResponseEnvelope(Generic[T], BaseSchema):
+    data: T
+    meta: Optional[dict] = None
+
+class Paginated(Generic[T], BaseSchema):
+    items: List[T]
+    total: int
+    page: int
+    size: int
+    has_next: bool

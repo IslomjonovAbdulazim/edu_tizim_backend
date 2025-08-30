@@ -1,7 +1,15 @@
-from pydantic import BaseModel, Field, validator
-from typing import Optional
+from pydantic import BaseModel, Field, ConfigDict, field_validator
+class BaseSchema(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True,
+        str_strip_whitespace=True,
+        validate_assignment=True,
+    )
+
+
+from typing import Optional, List, Generic, TypeVar
 from decimal import Decimal
-from datetime import date
+from datetime import date, datetime
 from .base import BaseSchema, TimestampMixin, PhoneNumberMixin
 
 
@@ -14,28 +22,35 @@ class LearningCenterBase(BaseSchema, PhoneNumberMixin):
     max_students: int = Field(1000, gt=0, le=10000, description="Maximum students allowed")
     max_branches: int = Field(5, gt=0, le=50, description="Maximum branches allowed")
 
-    @validator('phone_number')
+    @field_validator('phone_number')
     def validate_phone_number(cls, v):
         return cls.validate_phone(v)
 
-    @validator('telegram_contact')
+    @field_validator('telegram_contact')
     def validate_telegram_contact(cls, v):
         if v and not v.startswith('@'):
             return f"@{v}"
         return v
 
-    @validator('instagram_contact')
+    @field_validator('instagram_contact')
     def validate_instagram_contact(cls, v):
         if v and not v.startswith('@'):
             return f"@{v}"
         return v
 
 
+
+class LearningCenterOut(LearningCenterBase):
+    id: int = Field(..., gt=0, description="ID")
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    is_active: bool = True
+
 class LearningCenterCreate(LearningCenterBase):
     pass
 
 
-class LearningCenterUpdate(BaseModel):
+class LearningCenterUpdate(BaseSchema):
     brand_name: Optional[str] = Field(None, min_length=2, max_length=100)
     phone_number: Optional[str] = Field(None, min_length=10, max_length=20)
     telegram_contact: Optional[str] = Field(None, max_length=100)
@@ -43,7 +58,7 @@ class LearningCenterUpdate(BaseModel):
     max_students: Optional[int] = Field(None, gt=0, le=10000)
     max_branches: Optional[int] = Field(None, gt=0, le=50)
 
-    @validator('phone_number')
+    @field_validator('phone_number')
     def validate_phone_number(cls, v):
         return PhoneNumberMixin.validate_phone(v) if v else v
 
@@ -57,11 +72,11 @@ class LearningCenterResponse(LearningCenterBase, TimestampMixin):
     is_expiring_soon: bool = Field(False, description="Whether subscription expires within 7 days")
     expires_at: Optional[date] = Field(None, description="Subscription expiry date")
 
-    @validator('is_expired', pre=True, always=True)
+    @field_validator('is_expired', mode='before', validate_default=True)
     def set_is_expired(cls, v, values):
         return values.get('remaining_days', 0) <= 0
 
-    @validator('is_expiring_soon', pre=True, always=True)
+    @field_validator('is_expiring_soon', mode='before', validate_default=True)
     def set_is_expiring_soon(cls, v, values):
         days = values.get('remaining_days', 0)
         return 0 < days <= 7
@@ -78,6 +93,13 @@ class LearningCenterWithStats(LearningCenterResponse):
 
 
 # Branch Schemas
+
+class BranchOut(BranchBase):
+    id: int = Field(..., gt=0, description="ID")
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    is_active: bool = True
+
 class BranchBase(BaseSchema):
     title: str = Field(..., min_length=2, max_length=100, description="Branch name")
     description: Optional[str] = Field(None, max_length=500, description="Branch description")
@@ -89,7 +111,7 @@ class BranchCreate(BranchBase):
     learning_center_id: int = Field(..., gt=0, description="Learning center ID")
 
 
-class BranchUpdate(BaseModel):
+class BranchUpdate(BaseSchema):
     title: Optional[str] = Field(None, min_length=2, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
     latitude: Optional[Decimal] = Field(None, ge=-90, le=90)
@@ -103,7 +125,7 @@ class BranchResponse(BranchBase, TimestampMixin):
     # Computed fields
     has_coordinates: bool = Field(False, description="Whether branch has location coordinates")
 
-    @validator('has_coordinates', pre=True, always=True)
+    @field_validator('has_coordinates', mode='before', validate_default=True)
     def set_has_coordinates(cls, v, values):
         return values.get('latitude') is not None and values.get('longitude') is not None
 
@@ -116,6 +138,13 @@ class BranchWithStats(BranchResponse):
 
 
 # Payment Schemas
+
+class PaymentOut(PaymentBase):
+    id: int = Field(..., gt=0, description="ID")
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    is_active: bool = True
+
 class PaymentBase(BaseSchema):
     amount: Decimal = Field(..., gt=0, description="Payment amount")
     days_added: int = Field(..., gt=0, description="Days added to subscription")
@@ -128,7 +157,7 @@ class PaymentCreate(PaymentBase):
     learning_center_id: int = Field(..., gt=0, description="Learning center ID")
 
 
-class PaymentUpdate(BaseModel):
+class PaymentUpdate(BaseSchema):
     status: Optional[str] = Field(None, regex="^(pending|completed|failed|cancelled)$")
     notes: Optional[str] = Field(None, max_length=500)
 
@@ -139,7 +168,7 @@ class PaymentResponse(PaymentBase, TimestampMixin):
     # Computed fields
     days_per_amount: float = Field(0.0, ge=0.0, description="Days per unit amount ratio")
 
-    @validator('days_per_amount', pre=True, always=True)
+    @field_validator('days_per_amount', mode='before', validate_default=True)
     def calculate_days_per_amount(cls, v, values):
         amount = values.get('amount')
         days = values.get('days_added')
@@ -147,7 +176,7 @@ class PaymentResponse(PaymentBase, TimestampMixin):
 
 
 # Location-based queries
-class LocationQuery(BaseModel):
+class LocationQuery(BaseSchema):
     """Query for finding branches by location"""
     latitude: float = Field(..., ge=-90, le=90, description="Center latitude")
     longitude: float = Field(..., ge=-180, le=180, description="Center longitude")
@@ -160,7 +189,7 @@ class NearbyBranchResponse(BranchResponse):
 
 
 # Analytics and reporting
-class LearningCenterAnalytics(BaseModel):
+class LearningCenterAnalytics(BaseSchema):
     """Learning center analytics data"""
     center_id: int = Field(..., gt=0)
     date_range: str = Field(..., description="Analytics date range")
@@ -181,10 +210,23 @@ class LearningCenterAnalytics(BaseModel):
     subscription_renewals: int = Field(0, ge=0)
 
 
-class SubscriptionAlert(BaseModel):
+class SubscriptionAlert(BaseSchema):
     """Subscription expiration alert"""
     center_id: int = Field(..., gt=0)
     center_name: str = Field(..., min_length=1)
     remaining_days: int = Field(..., ge=0)
     alert_type: str = Field(..., regex="^(expiring_soon|expired|renewed)$")
     alert_date: date = Field(default_factory=date.today)
+
+# === Standard response wrappers ===
+T = TypeVar('T')
+class ResponseEnvelope(Generic[T], BaseSchema):
+    data: T
+    meta: Optional[dict] = None
+
+class Paginated(Generic[T], BaseSchema):
+    items: List[T]
+    total: int
+    page: int
+    size: int
+    has_next: bool

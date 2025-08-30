@@ -32,7 +32,7 @@ class VerificationRepository(BaseRepository):
         )
 
         self.db.add(verification_code)
-        self.db.commit()
+        self._commit()
         self.db.refresh(verification_code)
         return verification_code
 
@@ -65,7 +65,7 @@ class VerificationRepository(BaseRepository):
 
         # Use the model's verify method
         is_valid = verification_code.verify(provided_code)
-        self.db.commit()
+        self._commit()
         self.db.refresh(verification_code)
 
         return is_valid, verification_code
@@ -84,7 +84,7 @@ class VerificationRepository(BaseRepository):
         for code in previous_codes:
             code.is_active = False
 
-        self.db.commit()
+        self._commit()
         return len(previous_codes)
 
     def can_send_new_code(
@@ -194,7 +194,7 @@ class VerificationRepository(BaseRepository):
         for code in old_codes:
             self.db.delete(code)
 
-        self.db.commit()
+        self._commit()
         return len(old_codes)
 
     def get_system_stats(self, days: int = 30) -> Dict[str, Any]:
@@ -375,7 +375,7 @@ class VerificationRepository(BaseRepository):
         for code in codes:
             code.is_active = False
 
-        self.db.commit()
+        self._commit()
         return len(codes)
 
     def get_suspicious_activity(self, hours: int = 24) -> List[Dict[str, Any]]:

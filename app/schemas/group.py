@@ -1,5 +1,14 @@
-from pydantic import BaseModel, Field, validator
-from typing import Optional, List
+from datetime import datetime
+from pydantic import BaseModel, Field, ConfigDict, field_validator
+class BaseSchema(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True,
+        str_strip_whitespace=True,
+        validate_assignment=True,
+    )
+
+
+from typing import Optional, List, Generic, TypeVar
 from .base import BaseSchema, TimestampMixin
 from .user import UserResponse
 
@@ -11,11 +20,11 @@ class GroupBase(BaseSchema):
                                     description="Group schedule (e.g., 'Mon,Wed,Fri 10:00-12:00')")
     description: Optional[str] = Field(None, max_length=1000, description="Group description")
 
-    @validator('title')
+    @field_validator('title')
     def validate_title(cls, v):
         return v.strip()
 
-    @validator('schedule')
+    @field_validator('schedule')
     def validate_schedule(cls, v):
         if v:
             v = v.strip()
@@ -25,13 +34,20 @@ class GroupBase(BaseSchema):
         return v
 
 
+
+class GroupOut(GroupBase):
+    id: int = Field(..., gt=0, description="ID")
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    is_active: bool = True
+
 class GroupCreate(GroupBase):
     branch_id: int = Field(..., gt=0, description="Branch ID where group is located")
     course_id: Optional[int] = Field(None, gt=0, description="Course ID (optional)")
     teacher_id: Optional[int] = Field(None, gt=0, description="Teacher ID (optional)")
 
 
-class GroupUpdate(BaseModel):
+class GroupUpdate(BaseSchema):
     title: Optional[str] = Field(None, min_length=2, max_length=100)
     schedule: Optional[str] = Field(None, max_length=200)
     description: Optional[str] = Field(None, max_length=1000)
@@ -39,11 +55,11 @@ class GroupUpdate(BaseModel):
     teacher_id: Optional[int] = Field(None, gt=0)
     is_active: Optional[bool] = None
 
-    @validator('title')
+    @field_validator('title')
     def validate_title(cls, v):
         return v.strip() if v else v
 
-    @validator('schedule')
+    @field_validator('schedule')
     def validate_schedule(cls, v):
         if v:
             v = v.strip()
@@ -71,19 +87,19 @@ class GroupResponse(GroupBase, TimestampMixin):
     available_spots: int = Field(0, ge=0, description="Available student spots")
     capacity_percentage: float = Field(0.0, ge=0.0, le=100.0, description="Capacity utilization percentage")
 
-    @validator('is_full', pre=True, always=True)
+    @field_validator('is_full', mode='before', validate_default=True)
     def set_is_full(cls, v, values):
         student_count = values.get('student_count', 0)
         max_capacity = values.get('max_capacity', 25)
         return student_count >= max_capacity
 
-    @validator('available_spots', pre=True, always=True)
+    @field_validator('available_spots', mode='before', validate_default=True)
     def calculate_available_spots(cls, v, values):
         student_count = values.get('student_count', 0)
         max_capacity = values.get('max_capacity', 25)
         return max(0, max_capacity - student_count)
 
-    @validator('capacity_percentage', pre=True, always=True)
+    @field_validator('capacity_percentage', mode='before', validate_default=True)
     def calculate_capacity_percentage(cls, v, values):
         student_count = values.get('student_count', 0)
         max_capacity = values.get('max_capacity', 25)
@@ -101,25 +117,25 @@ class GroupWithDetails(GroupResponse):
     average_progress: float = Field(0.0, ge=0.0, le=100.0, description="Average student progress")
     group_performance_score: float = Field(0.0, ge=0.0, le=100.0, description="Overall group performance")
 
-    @validator('active_students', pre=True, always=True)
+    @field_validator('active_students', mode='before', validate_default=True)
     def count_active_students(cls, v, values):
         students = values.get('students', [])
         return len([s for s in students if s.is_active]) if students else 0
 
 
 # Student Group Assignment Schemas
-class StudentGroupAssignment(BaseModel):
+class StudentGroupAssignment(BaseSchema):
     """Single student-group assignment"""
     user_id: int = Field(..., gt=0, description="Student user ID")
     group_id: int = Field(..., gt=0, description="Group ID")
 
 
-class StudentGroupBulkAssignment(BaseModel):
+class StudentGroupBulkAssignment(BaseSchema):
     """Bulk student-group assignment"""
     group_id: int = Field(..., gt=0, description="Target group ID")
     user_ids: List[int] = Field(..., min_items=1, max_items=50, description="Student user IDs")
 
-    @validator('user_ids')
+    @field_validator('user_ids')
     def validate_unique_user_ids(cls, v):
         if len(v) != len(set(v)):
             raise ValueError('Duplicate user IDs found')
@@ -128,21 +144,21 @@ class StudentGroupBulkAssignment(BaseModel):
         return v
 
 
-class StudentGroupRemoval(BaseModel):
+class StudentGroupRemoval(BaseSchema):
     """Remove student from group"""
     user_id: int = Field(..., gt=0, description="Student user ID")
     group_id: int = Field(..., gt=0, description="Group ID")
     reason: Optional[str] = Field(None, max_length=200, description="Reason for removal")
 
 
-class StudentGroupTransfer(BaseModel):
+class StudentGroupTransfer(BaseSchema):
     """Transfer student between groups"""
     user_id: int = Field(..., gt=0, description="Student user ID")
     from_group_id: int = Field(..., gt=0, description="Source group ID")
     to_group_id: int = Field(..., gt=0, description="Target group ID")
     reason: Optional[str] = Field(None, max_length=200, description="Reason for transfer")
 
-    @validator('to_group_id')
+    @field_validator('to_group_id')
     def validate_different_groups(cls, v, values):
         from_group = values.get('from_group_id')
         if v == from_group:
@@ -151,7 +167,7 @@ class StudentGroupTransfer(BaseModel):
 
 
 # Group Lists and Collections
-class GroupStudentsList(BaseModel):
+class GroupStudentsList(BaseSchema):
     """List of students in a group"""
     group_id: int = Field(..., gt=0)
     group_title: str = Field(..., description="Group title")
@@ -159,55 +175,55 @@ class GroupStudentsList(BaseModel):
     total_students: int = Field(..., ge=0, description="Total number of students")
     active_students: int = Field(..., ge=0, description="Number of active students")
 
-    @validator('total_students', pre=True, always=True)
+    @field_validator('total_students', mode='before', validate_default=True)
     def set_total_students(cls, v, values):
         students = values.get('students', [])
         return len(students)
 
-    @validator('active_students', pre=True, always=True)
+    @field_validator('active_students', mode='before', validate_default=True)
     def count_active_students(cls, v, values):
         students = values.get('students', [])
         return len([s for s in students if s.is_active])
 
 
-class GroupsList(BaseModel):
+class GroupsList(BaseSchema):
     """List of groups with summary info"""
     groups: List[GroupResponse] = Field(..., description="Groups")
     total_groups: int = Field(..., ge=0, description="Total number of groups")
     active_groups: int = Field(..., ge=0, description="Number of active groups")
     total_students: int = Field(..., ge=0, description="Total students across all groups")
 
-    @validator('total_groups', pre=True, always=True)
+    @field_validator('total_groups', mode='before', validate_default=True)
     def set_total_groups(cls, v, values):
         groups = values.get('groups', [])
         return len(groups)
 
-    @validator('active_groups', pre=True, always=True)
+    @field_validator('active_groups', mode='before', validate_default=True)
     def count_active_groups(cls, v, values):
         groups = values.get('groups', [])
         return len([g for g in groups if g.is_active])
 
-    @validator('total_students', pre=True, always=True)
+    @field_validator('total_students', mode='before', validate_default=True)
     def sum_total_students(cls, v, values):
         groups = values.get('groups', [])
         return sum(g.student_count for g in groups)
 
 
 # Teacher Assignment
-class TeacherAssignment(BaseModel):
+class TeacherAssignment(BaseSchema):
     """Assign teacher to group"""
     group_id: int = Field(..., gt=0, description="Group ID")
     teacher_id: int = Field(..., gt=0, description="Teacher user ID")
 
 
-class TeacherRemoval(BaseModel):
+class TeacherRemoval(BaseSchema):
     """Remove teacher from group"""
     group_id: int = Field(..., gt=0, description="Group ID")
     reason: Optional[str] = Field(None, max_length=200, description="Reason for removal")
 
 
 # Group Search and Filtering
-class GroupSearchRequest(BaseModel):
+class GroupSearchRequest(BaseSchema):
     """Search and filter groups"""
     query: Optional[str] = Field(None, min_length=1, max_length=100, description="Search query")
     branch_id: Optional[int] = Field(None, gt=0, description="Filter by branch")
@@ -223,7 +239,7 @@ class GroupSearchRequest(BaseModel):
 
 
 # Group Analytics
-class GroupAnalytics(BaseModel):
+class GroupAnalytics(BaseSchema):
     """Group performance analytics"""
     group_id: int = Field(..., gt=0)
     group_title: str = Field(..., description="Group title")
@@ -246,7 +262,7 @@ class GroupAnalytics(BaseModel):
     group_rank: Optional[int] = Field(None, gt=0, description="Group's rank compared to other groups")
 
 
-class GroupCapacityInfo(BaseModel):
+class GroupCapacityInfo(BaseSchema):
     """Group capacity information"""
     group_id: int = Field(..., gt=0)
     current_students: int = Field(..., ge=0, description="Current number of students")
@@ -256,19 +272,19 @@ class GroupCapacityInfo(BaseModel):
     capacity_percentage: float = Field(..., ge=0.0, le=100.0, description="Current capacity usage")
     recommended_capacity: int = Field(..., gt=0, description="Recommended optimal capacity")
 
-    @validator('available_spots', pre=True, always=True)
+    @field_validator('available_spots', mode='before', validate_default=True)
     def calculate_available_spots(cls, v, values):
         current = values.get('current_students', 0)
         max_cap = values.get('max_capacity', 25)
         return max(0, max_cap - current)
 
-    @validator('is_full', pre=True, always=True)
+    @field_validator('is_full', mode='before', validate_default=True)
     def set_is_full(cls, v, values):
         current = values.get('current_students', 0)
         max_cap = values.get('max_capacity', 25)
         return current >= max_cap
 
-    @validator('capacity_percentage', pre=True, always=True)
+    @field_validator('capacity_percentage', mode='before', validate_default=True)
     def calculate_percentage(cls, v, values):
         current = values.get('current_students', 0)
         max_cap = values.get('max_capacity', 25)
@@ -276,26 +292,39 @@ class GroupCapacityInfo(BaseModel):
 
 
 # Batch Operations
-class BulkGroupUpdate(BaseModel):
+class BulkGroupUpdate(BaseSchema):
     """Bulk update multiple groups"""
     group_ids: List[int] = Field(..., min_items=1, max_items=20, description="Group IDs to update")
     updates: GroupUpdate = Field(..., description="Updates to apply")
 
-    @validator('group_ids')
+    @field_validator('group_ids')
     def validate_unique_group_ids(cls, v):
         if len(v) != len(set(v)):
             raise ValueError('Duplicate group IDs found')
         return v
 
 
-class GroupCreationBatch(BaseModel):
+class GroupCreationBatch(BaseSchema):
     """Create multiple groups at once"""
     branch_id: int = Field(..., gt=0, description="Target branch ID")
     groups: List[GroupBase] = Field(..., min_items=1, max_items=10, description="Groups to create")
 
-    @validator('groups')
+    @field_validator('groups')
     def validate_unique_titles(cls, groups):
         titles = [g.title.lower() for g in groups]
         if len(titles) != len(set(titles)):
             raise ValueError('Duplicate group titles found in batch')
         return groups
+
+# === Standard response wrappers ===
+T = TypeVar('T')
+class ResponseEnvelope(Generic[T], BaseSchema):
+    data: T
+    meta: Optional[dict] = None
+
+class Paginated(Generic[T], BaseSchema):
+    items: List[T]
+    total: int
+    page: int
+    size: int
+    has_next: bool

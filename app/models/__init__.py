@@ -1,4 +1,4 @@
-# Import all simplified models
+# models/__init__.py
 from .base import BaseModel
 from .user import User, UserRole, UserCenterRole, StudentGroup
 from .learning_center import LearningCenter, Branch, Payment
@@ -9,38 +9,12 @@ from .gamification import LeaderboardEntry, LeaderboardType
 from .verification import VerificationCode
 
 __all__ = [
-    # Base
     "BaseModel",
-
-    # User system - simplified multi-tenant roles
-    "User",
-    "UserRole",
-    "UserCenterRole",
-    "StudentGroup",
-
-    # Learning center & business
-    "LearningCenter",
-    "Branch",
-    "Payment",
-
-    # Content structure - clean hierarchy
-    "Course",
-    "Module",
-    "Lesson",
-    "Word",
-
-    # Group management
+    "User", "UserRole", "UserCenterRole", "StudentGroup",
+    "LearningCenter", "Branch", "Payment",
+    "Course", "Module", "Lesson", "Word",
     "Group",
-
-    # Learning & progress - simplified tracking
-    "Progress",
-    "QuizSession",
-    "WeakWord",
-
-    # Gamification - streamlined engagement (leaderboard only)
-    "LeaderboardEntry",
-    "LeaderboardType",
-
-    # Verification - secure and simple
-    "VerificationCode"
+    "Progress", "QuizSession", "WeakWord",
+    "LeaderboardEntry", "LeaderboardType",
+    "VerificationCode",
 ]

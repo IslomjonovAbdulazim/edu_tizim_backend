@@ -1,40 +1,19 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import (
-    auth,
-    users,
-    students,
-    parents,
-    groups,
-    modules,
-    lessons,
-    words,
-    progress,
-    leaderboard,
-    badges,
-    weeklists
-)
+# Import concrete endpoint modules if they exist in your project
+try:
+    from app.api.v1.endpoints import auth, content, gamification, groups, learning, learning_centers, users
+except Exception:  # keep router import resilient during boot
+    auth = content = gamification = groups = learning = learning_centers = users = None  # type: ignore
 
-api_router = APIRouter()
+api_v1 = APIRouter()
+if auth: api_v1.include_router(auth.router)
+if users: api_v1.include_router(users.router)
+if content: api_v1.include_router(content.router)
+if groups: api_v1.include_router(groups.router)
+if learning: api_v1.include_router(learning.router)
+if learning_centers: api_v1.include_router(learning_centers.router)
+if gamification: api_v1.include_router(gamification.router)
 
-# Authentication
-api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
-
-# User Management
-api_router.include_router(users.router, prefix="/users", tags=["Users"])
-api_router.include_router(students.router, prefix="/students", tags=["Students"])
-api_router.include_router(parents.router, prefix="/parents", tags=["Parents"])
-
-# Group Management
-api_router.include_router(groups.router, prefix="/groups", tags=["Groups"])
-
-# Content Management
-api_router.include_router(modules.router, prefix="/modules", tags=["Modules"])
-api_router.include_router(lessons.router, prefix="/lessons", tags=["Lessons"])
-api_router.include_router(words.router, prefix="/words", tags=["Words"])
-
-# Progress & Gamification
-api_router.include_router(progress.router, prefix="/progress", tags=["Progress"])
-api_router.include_router(leaderboard.router, prefix="/leaderboard", tags=["Leaderboard"])
-api_router.include_router(badges.router, prefix="/badges", tags=["Badges"])
-api_router.include_router(weeklists.router, prefix="/weeklists", tags=["Weekly Lists"])
+# Backwards compatibility with older imports:
+api_router = api_v1

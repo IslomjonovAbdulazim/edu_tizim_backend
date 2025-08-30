@@ -112,7 +112,7 @@ class LeaderboardRepository(BaseRepository):
                 new_entries.append(LeaderboardEntry(**entry_data))
 
             self.db.add_all(new_entries)
-            self.db.commit()
+            self._commit()
             return True
 
         except Exception as e:
@@ -284,7 +284,7 @@ class LeaderboardRepository(BaseRepository):
         for entry in old_entries:
             entry.is_active = False
 
-        self.db.commit()
+        self._commit()
         return len(old_entries)
 
     def get_rank_distribution(self, leaderboard_type: LeaderboardType, group_id: int = None) -> Dict[str, Any]:

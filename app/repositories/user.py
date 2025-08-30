@@ -57,7 +57,7 @@ class UserRepository(BaseRepository):
         user = self.get(user_id)
         if user:
             user.is_verified = True
-            self.db.commit()
+            self._commit()
             self.db.refresh(user)
         return user
 
@@ -75,7 +75,7 @@ class UserRepository(BaseRepository):
             is_active=True
         )
         self.db.add(user_role)
-        self.db.commit()
+        self._commit()
 
         # Refresh to get relationships
         self.db.refresh(user)
@@ -89,7 +89,7 @@ class UserRepository(BaseRepository):
             active_role = next((r for r in user.center_roles if r.is_active), None)
             if active_role:
                 active_role.role = new_role
-                self.db.commit()
+                self._commit()
                 self.db.refresh(user)
         return user
 
@@ -117,7 +117,7 @@ class UserRepository(BaseRepository):
             )
             self.db.add(new_role)
 
-        self.db.commit()
+        self._commit()
         return True
 
     def remove_role_in_center(self, user_id: int, learning_center_id: int) -> bool:
@@ -132,7 +132,7 @@ class UserRepository(BaseRepository):
 
         if role:
             role.is_active = False
-            self.db.commit()
+            self._commit()
             return True
         return False
 
@@ -262,7 +262,7 @@ class UserRepository(BaseRepository):
         user = self.get(user_id)
         if user:
             user.telegram_id = telegram_id
-            self.db.commit()
+            self._commit()
             self.db.refresh(user)
         return user
 
@@ -271,7 +271,7 @@ class UserRepository(BaseRepository):
         user = self.get(user_id)
         if user:
             user.telegram_id = None
-            self.db.commit()
+            self._commit()
             self.db.refresh(user)
         return user
 

@@ -94,7 +94,7 @@ class GroupRepository(BaseRepository):
             is_active=True
         )
         self.db.add(student_group)
-        self.db.commit()
+        self._commit()
         return True
 
     def remove_student_from_group(self, user_id: int, group_id: int) -> bool:
@@ -109,7 +109,7 @@ class GroupRepository(BaseRepository):
 
         if relationship:
             relationship.is_active = False
-            self.db.commit()
+            self._commit()
             return True
         return False
 
@@ -156,7 +156,7 @@ class GroupRepository(BaseRepository):
         group = self.get(group_id)
         if group:
             group.teacher_id = teacher_id
-            self.db.commit()
+            self._commit()
             self.db.refresh(group)
         return group
 
@@ -165,7 +165,7 @@ class GroupRepository(BaseRepository):
         group = self.get(group_id)
         if group:
             group.teacher_id = None
-            self.db.commit()
+            self._commit()
             self.db.refresh(group)
         return group
 
@@ -391,5 +391,5 @@ class GroupRepository(BaseRepository):
         for membership in inactive_memberships:
             self.db.delete(membership)
 
-        self.db.commit()
+        self._commit()
         return len(inactive_memberships)

@@ -13,6 +13,14 @@ class BaseRepository:
         self.db = db
         self.model = model
 
+    def _commit(self) -> None:
+        """Commit with rollback on error."""
+        try:
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+
     def get(self, id: int) -> Optional[T]:
         """Get single record by ID"""
         return self.db.query(self.model).filter(
@@ -56,7 +64,7 @@ class BaseRepository:
         """Create new record"""
         db_obj = self.model(**obj_in)
         self.db.add(db_obj)
-        self.db.commit()
+        self._commit()
         self.db.refresh(db_obj)
         return db_obj
 
@@ -67,7 +75,7 @@ class BaseRepository:
             for key, value in obj_in.items():
                 if hasattr(db_obj, key):
                     setattr(db_obj, key, value)
-            self.db.commit()
+            self._commit()
             self.db.refresh(db_obj)
         return db_obj
 
@@ -76,7 +84,7 @@ class BaseRepository:
         db_obj = self.get(id)
         if db_obj:
             db_obj.is_active = False
-            self.db.commit()
+            self._commit()
             self.db.refresh(db_obj)
         return db_obj
 
@@ -85,7 +93,7 @@ class BaseRepository:
         db_obj = self.get(id)
         if db_obj:
             self.db.delete(db_obj)
-            self.db.commit()
+            self._commit()
             return True
         return False
 
@@ -110,7 +118,7 @@ class BaseRepository:
         """Bulk create multiple records"""
         db_objects = [self.model(**obj) for obj in objects_in]
         self.db.add_all(db_objects)
-        self.db.commit()
+        self._commit()
         for obj in db_objects:
             self.db.refresh(obj)
         return db_objects
@@ -191,6 +199,6 @@ class BaseRepository:
         db_obj = self.db.query(self.model).filter(self.model.id == id).first()
         if db_obj:
             db_obj.is_active = True
-            self.db.commit()
+            self._commit()
             self.db.refresh(db_obj)
         return db_obj

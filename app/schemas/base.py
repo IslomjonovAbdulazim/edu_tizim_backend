@@ -1,4 +1,5 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
 from datetime import datetime
 from typing import Optional, List, TypeVar, Generic
 
@@ -12,7 +13,7 @@ class BaseSchema(BaseModel):
     )
 
 
-class TimestampMixin(BaseModel):
+class TimestampMixin(BaseSchema):
     """Mixin for models with timestamps"""
     id: int = Field(..., gt=0, description="Unique identifier")
     created_at: datetime = Field(..., description="Creation timestamp")
@@ -20,7 +21,7 @@ class TimestampMixin(BaseModel):
     is_active: bool = Field(True, description="Soft delete flag")
 
 
-class PaginationParams(BaseModel):
+class PaginationParams(BaseSchema):
     """Common pagination parameters"""
     page: int = Field(1, ge=1, description="Page number")
     size: int = Field(20, ge=1, le=100, description="Items per page")
@@ -66,7 +67,7 @@ class SuccessResponse(BaseModel, Generic[T]):
     data: Optional[T] = Field(None, description="Response data")
 
 
-class ErrorResponse(BaseModel):
+class ErrorResponse(BaseSchema):
     """Standard error response format"""
     success: bool = Field(False, description="Operation success status")
     message: str = Field(..., description="Error message")
@@ -75,7 +76,7 @@ class ErrorResponse(BaseModel):
 
 
 # Common field validators
-class PhoneNumberMixin(BaseModel):
+class PhoneNumberMixin(BaseSchema):
     """Mixin for phone number validation"""
 
     @classmethod
@@ -99,7 +100,7 @@ class PhoneNumberMixin(BaseModel):
         return cleaned
 
 
-class NameMixin(BaseModel):
+class NameMixin(BaseSchema):
     """Mixin for name validation"""
 
     @classmethod
@@ -122,19 +123,19 @@ class NameMixin(BaseModel):
 
 
 # Search and filter schemas
-class SearchParams(BaseModel):
+class SearchParams(BaseSchema):
     """Common search parameters"""
     query: str = Field(..., min_length=1, max_length=100, description="Search query")
 
 
-class FilterParams(BaseModel):
+class FilterParams(BaseSchema):
     """Common filter parameters"""
     is_active: Optional[bool] = Field(None, description="Filter by active status")
     created_after: Optional[datetime] = Field(None, description="Filter by creation date")
     created_before: Optional[datetime] = Field(None, description="Filter by creation date")
 
 
-class SortParams(BaseModel):
+class SortParams(BaseSchema):
     """Common sort parameters"""
     sort_by: str = Field("created_at", description="Field to sort by")
     sort_order: str = Field("desc", regex="^(asc|desc)$", description="Sort order")
@@ -142,3 +143,16 @@ class SortParams(BaseModel):
     @property
     def is_ascending(self) -> bool:
         return self.sort_order == "asc"
+
+# === Standard response wrappers ===
+T = TypeVar('T')
+class ResponseEnvelope(Generic[T], BaseSchema):
+    data: T
+    meta: Optional[dict] = None
+
+class Paginated(Generic[T], BaseSchema):
+    items: List[T]
+    total: int
+    page: int
+    size: int
+    has_next: bool

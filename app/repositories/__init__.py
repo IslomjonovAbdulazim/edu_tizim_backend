@@ -183,7 +183,7 @@ class RepositoryFactory:
 
     def commit_transaction(self):
         """Commit current transaction"""
-        self.db.commit()
+        self._commit()
 
     def rollback_transaction(self):
         """Rollback current transaction"""
