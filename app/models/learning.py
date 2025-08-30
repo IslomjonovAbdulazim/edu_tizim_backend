@@ -38,9 +38,9 @@ class Progress(BaseModel):
         CheckConstraint('total_attempts >= 0', name='chk_attempts_positive'),
         CheckConstraint('correct_answers >= 0', name='chk_correct_positive'),
         CheckConstraint('correct_answers <= total_attempts', name='chk_correct_not_exceed'),
-        Index('idx_user_completed', 'user_id', 'is_completed'),
-        Index('idx_lesson_user', 'lesson_id', 'user_id'),
-        Index('idx_last_attempt', 'last_attempt_at'),
+        Index('idx_progress_user_completed', 'user_id', 'is_completed'),
+        Index('idx_progress_lesson_user', 'lesson_id', 'user_id'),
+        Index('idx_progress_last_attempt', 'last_attempt_at'),
     )
 
     def __str__(self):
@@ -87,9 +87,9 @@ class QuizSession(BaseModel):
         CheckConstraint('correct_answers >= 0', name='chk_correct_positive'),
         CheckConstraint('correct_answers <= total_questions', name='chk_correct_not_exceed'),
         CheckConstraint('completion_percentage >= 0 AND completion_percentage <= 100', name='chk_percentage_valid'),
-        Index('idx_user_session', 'user_id', 'started_at'),
-        Index('idx_lesson_session', 'lesson_id', 'started_at'),
-        Index('idx_completed', 'is_completed', 'completed_at'),
+        Index('idx_quizsession_user_session', 'user_id', 'started_at'),
+        Index('idx_quizsession_lesson_session', 'lesson_id', 'started_at'),
+        Index('idx_quizsession_completed', 'is_completed', 'completed_at'),
     )
 
     def __str__(self):
@@ -133,9 +133,9 @@ class WeakWord(BaseModel):
         CheckConstraint('correct_attempts <= total_attempts', name='chk_correct_not_exceed'),
         CheckConstraint("strength IN ('weak', 'medium', 'strong')", name='chk_strength_valid'),
         CheckConstraint("length(last_7_results) <= 7", name='chk_results_length'),
-        Index('idx_user_strength', 'user_id', 'strength'),
-        Index('idx_word_user', 'word_id', 'user_id'),
-        Index('idx_strength_attempt', 'strength', 'last_attempt_at'),
+        Index('idx_weakword_user_strength', 'user_id', 'strength'),
+        Index('idx_weakword_word_user', 'word_id', 'user_id'),
+        Index('idx_weakword_strength_attempt', 'strength', 'last_attempt_at'),
     )
 
     def __str__(self):

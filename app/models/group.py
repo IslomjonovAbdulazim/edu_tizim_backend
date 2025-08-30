@@ -35,8 +35,8 @@ class Group(BaseModel):
     # Constraints
     __table_args__ = (
         CheckConstraint("length(title) >= 2", name='chk_title_length'),
-        Index('idx_branch_active', 'branch_id', 'is_active'),
-        Index('idx_teacher_active', 'teacher_id', 'is_active'),
+        Index('idx_group_branch_active', 'branch_id', 'is_active'),
+        Index('idx_group_teacher_active', 'teacher_id', 'is_active'),
     )
 
     def __str__(self):

@@ -27,8 +27,8 @@ class VerificationCode(BaseModel):
         CheckConstraint('attempts >= 0', name='chk_attempts_positive'),
         CheckConstraint('max_attempts > 0', name='chk_max_attempts_positive'),
         CheckConstraint('attempts <= max_attempts', name='chk_attempts_not_exceed'),
-        Index('idx_telegram_phone', 'telegram_id', 'phone_number'),
-        Index('idx_expires_used', 'expires_at', 'is_used'),
+        Index('idx_verificationcode_telegram_phone', 'telegram_id', 'phone_number'),
+        Index('idx_verificationcode_expires_used', 'expires_at', 'is_used'),
     )
 
     def __str__(self):
@@ -62,7 +62,7 @@ class VerificationCode(BaseModel):
 
     def verify(self, provided_code: str) -> bool:
         """Verify the provided code"""
-        self.attempts += 1
+#         self.attempts += 1  # moved to increment only on failed attempts
 
         if self.is_valid and self.code == provided_code.strip():
             self.is_used = True

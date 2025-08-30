@@ -48,9 +48,9 @@ class LeaderboardEntry(BaseModel):
         CheckConstraint('rank > 0', name='chk_rank_positive'),
         CheckConstraint('points >= 0', name='chk_points_positive'),
         CheckConstraint("length(user_full_name) >= 1", name='chk_name_length'),
-        Index('idx_type_date_rank', 'leaderboard_type', 'leaderboard_date', 'rank'),
-        Index('idx_group_type_rank', 'group_id', 'leaderboard_type', 'rank'),
-        Index('idx_user_type', 'user_id', 'leaderboard_type'),
+        Index('idx_leaderboardentry_type_date_rank', 'leaderboard_type', 'leaderboard_date', 'rank'),
+        Index('idx_leaderboardentry_group_type_rank', 'group_id', 'leaderboard_type', 'rank'),
+        Index('idx_leaderboardentry_user_type', 'user_id', 'leaderboard_type'),
     )
 
     def __str__(self):

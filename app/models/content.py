@@ -25,8 +25,8 @@ class Course(BaseModel):
         CheckConstraint("level IN ('beginner', 'intermediate', 'advanced')", name='chk_valid_level'),
         CheckConstraint("length(name) >= 2", name='chk_name_length'),
         CheckConstraint("order_index >= 0", name='chk_order_positive'),
-        Index('idx_center_active', 'learning_center_id', 'is_active'),
-        Index('idx_center_order', 'learning_center_id', 'order_index'),
+        Index('idx_course_center_active', 'learning_center_id', 'is_active'),
+        Index('idx_course_center_order', 'learning_center_id', 'order_index'),
     )
 
     def __str__(self):
@@ -53,8 +53,8 @@ class Module(BaseModel):
     __table_args__ = (
         CheckConstraint("length(title) >= 2", name='chk_title_length'),
         CheckConstraint("order_index >= 0", name='chk_order_positive'),
-        Index('idx_course_active', 'course_id', 'is_active'),
-        Index('idx_course_order', 'course_id', 'order_index'),
+        Index('idx_module_course_active', 'course_id', 'is_active'),
+        Index('idx_module_course_order', 'course_id', 'order_index'),
     )
 
     def __str__(self):
@@ -84,8 +84,8 @@ class Lesson(BaseModel):
     __table_args__ = (
         CheckConstraint("length(title) >= 2", name='chk_title_length'),
         CheckConstraint("order_index >= 0", name='chk_order_positive'),
-        Index('idx_module_active', 'module_id', 'is_active'),
-        Index('idx_module_order', 'module_id', 'order_index'),
+        Index('idx_lesson_module_active', 'module_id', 'is_active'),
+        Index('idx_lesson_module_order', 'module_id', 'order_index'),
     )
 
     def __str__(self):
@@ -115,8 +115,8 @@ class Word(BaseModel):
         CheckConstraint("length(foreign_form) >= 1", name='chk_foreign_length'),
         CheckConstraint("length(native_form) >= 1", name='chk_native_length'),
         CheckConstraint("order_index >= 0", name='chk_order_positive'),
-        Index('idx_lesson_active', 'lesson_id', 'is_active'),
-        Index('idx_lesson_order', 'lesson_id', 'order_index'),
+        Index('idx_word_lesson_active', 'lesson_id', 'is_active'),
+        Index('idx_word_lesson_order', 'lesson_id', 'order_index'),
     )
 
     def __str__(self):

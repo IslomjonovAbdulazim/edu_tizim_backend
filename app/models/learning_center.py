@@ -37,7 +37,7 @@ class LearningCenter(BaseModel):
         CheckConstraint('remaining_days >= 0', name='chk_remaining_days_valid'),
         CheckConstraint('total_paid >= 0', name='chk_total_paid_valid'),
         CheckConstraint("length(brand_name) >= 2", name='chk_brand_name_length'),
-        Index('idx_active_remaining', 'is_active', 'remaining_days'),
+        Index('idx_learningcenter_active_remaining', 'is_active', 'remaining_days'),
     )
 
     def __str__(self):
@@ -73,7 +73,7 @@ class Branch(BaseModel):
     # Constraints
     __table_args__ = (
         CheckConstraint("length(title) >= 2", name='chk_title_length'),
-        Index('idx_center_active', 'learning_center_id', 'is_active'),
+        Index('idx_branch_center_active', 'learning_center_id', 'is_active'),
     )
 
     def __str__(self):
@@ -98,7 +98,7 @@ class Payment(BaseModel):
     __table_args__ = (
         CheckConstraint('amount > 0', name='chk_amount_positive'),
         CheckConstraint('days_added > 0', name='chk_days_positive'),
-        Index('idx_center_date', 'learning_center_id', 'payment_date'),
+        Index('idx_payment_center_date', 'learning_center_id', 'payment_date'),
     )
 
     def __str__(self):

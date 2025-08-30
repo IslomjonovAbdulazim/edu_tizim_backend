@@ -70,8 +70,8 @@ class UserCenterRole(BaseModel):
     # Constraints - one role per user per center
     __table_args__ = (
         UniqueConstraint('user_id', 'learning_center_id', name='uq_user_center'),
-        Index('idx_center_role', 'learning_center_id', 'role'),
-        Index('idx_user_center', 'user_id', 'learning_center_id'),
+        Index('idx_usercenterrole_center_role', 'learning_center_id', 'role'),
+        Index('idx_usercenterrole_user_center', 'user_id', 'learning_center_id'),
     )
 
     def __str__(self):
@@ -92,8 +92,8 @@ class StudentGroup(BaseModel):
     # Constraints
     __table_args__ = (
         UniqueConstraint('user_id', 'group_id', name='uq_student_group'),
-        Index('idx_group_active', 'group_id', 'is_active'),
-        Index('idx_user_active', 'user_id', 'is_active'),
+        Index('idx_studentgroup_group_active', 'group_id', 'is_active'),
+        Index('idx_studentgroup_user_active', 'user_id', 'is_active'),
     )
 
     def __str__(self):
