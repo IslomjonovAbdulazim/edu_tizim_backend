@@ -3,14 +3,13 @@ from sqlalchemy.orm import relationship
 from datetime import date
 import enum
 from .base import BaseModel
-from ..constants.badge_types import LEVEL_THRESHOLDS, BADGE_INFO
 
 
 class LeaderboardType(enum.Enum):
-    GLOBAL_3_DAILY = "global_3_daily"  # Global 3-day leaderboard
-    GLOBAL_ALL_TIME = "global_all_time"  # Global all-time leaderboard
-    GROUP_3_DAILY = "group_3_daily"  # Group 3-day leaderboard
-    GROUP_ALL_TIME = "group_all_time"  # Group all-time leaderboard
+    GLOBAL_3_DAILY = "global_3_daily"
+    GLOBAL_ALL_TIME = "global_all_time"
+    GROUP_3_DAILY = "group_3_daily"
+    GROUP_ALL_TIME = "group_all_time"
 
 
 class LeaderboardEntry(BaseModel):
@@ -30,7 +29,7 @@ class LeaderboardEntry(BaseModel):
     rank = Column(Integer, nullable=False)
     points = Column(Integer, nullable=False, default=0)
     previous_rank = Column(Integer, nullable=True)
-    position_change = Column(Integer, default=0)  # Positive = moved up, negative = moved down
+    position_change = Column(Integer, default=0)
 
     # Denormalized data for performance
     user_full_name = Column(String(100), nullable=False)
@@ -42,15 +41,11 @@ class LeaderboardEntry(BaseModel):
     # Constraints
     __table_args__ = (
         UniqueConstraint('user_id', 'leaderboard_type', 'group_id', 'leaderboard_date',
-                         name='uix_leaderboard_entry'),
+                         name='uq_leaderboard_entry'),
     )
 
     def __str__(self):
-        return f"LeaderboardEntry({self.user_full_name}, {self.leaderboard_type.value}, Rank {self.rank})"
-
-    @property
-    def is_3_daily(self):
-        return self.leaderboard_type in [LeaderboardType.GLOBAL_3_DAILY, LeaderboardType.GROUP_3_DAILY]
+        return f"LeaderboardEntry({self.user_full_name}, Rank {self.rank})"
 
     @property
     def is_top_3(self):
@@ -58,28 +53,25 @@ class LeaderboardEntry(BaseModel):
 
     @property
     def position_improved(self):
-        """Check if position improved from previous rank"""
         return self.position_change > 0
 
 
 class BadgeCategory(str, enum.Enum):
-    DAILY_FIRST = "daily_first"  # Top 1 in 3-daily leaderboard
-    PERFECT_LESSON = "perfect_lesson"  # 100% lesson completion
-    WEAKLIST_SOLVER = "weaklist_solver"  # WeakList completion
-    POSITION_CLIMBER = "position_climber"  # Position improvement
+    DAILY_FIRST = "daily_first"
+    PERFECT_LESSON = "perfect_lesson"
+    WEAKLIST_SOLVER = "weaklist_solver"
+    POSITION_CLIMBER = "position_climber"
 
 
 class UserBadge(BaseModel):
     __tablename__ = "user_badges"
 
-    # User and badge
+    # User and badge - include learning_center_id for separation
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     category = Column(Enum(BadgeCategory), nullable=False)
-
-    # ADDED: Learning center for separation - badges earned separately per center
     learning_center_id = Column(Integer, ForeignKey("learning_centers.id"), nullable=False)
 
-    # Badge level (not count)
+    # Badge level
     level = Column(Integer, default=1)
 
     # Badge info
@@ -95,7 +87,10 @@ class UserBadge(BaseModel):
     user = relationship("User", back_populates="user_badges")
     learning_center = relationship("LearningCenter")
 
-    # Unique constraint: one badge per category per user per learning center (level can increase)
+    # Unique constraint: one badge per category per user per center
     __table_args__ = (
-        UniqueConstraint('user_id', 'category', 'learning_center_id', name='uix_user_badge_category_center'),
+        UniqueConstraint('user_id', 'category', 'learning_center_id', name='uq_user_badge_category_center'),
     )
+
+    def __str__(self):
+        return f"UserBadge({self.user_id}, {self.category.value}, Level {self.level})"

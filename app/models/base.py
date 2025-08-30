@@ -14,10 +14,3 @@ class BaseModel(Base):
     def to_dict(self):
         """Convert to dictionary, excluding relationships"""
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
-
-    def update_from_dict(self, data: dict, exclude: set = None):
-        """Update from dictionary with optional exclusions"""
-        exclude = exclude or set()
-        for key, value in data.items():
-            if key not in exclude and hasattr(self, key):
-                setattr(self, key, value)
