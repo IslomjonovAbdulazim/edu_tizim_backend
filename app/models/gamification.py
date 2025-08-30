@@ -76,6 +76,9 @@ class UserBadge(BaseModel):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     category = Column(Enum(BadgeCategory), nullable=False)
 
+    # ADDED: Learning center for separation - badges earned separately per center
+    learning_center_id = Column(Integer, ForeignKey("learning_centers.id"), nullable=False)
+
     # Badge level (not count)
     level = Column(Integer, default=1)
 
@@ -90,34 +93,9 @@ class UserBadge(BaseModel):
 
     # Relationships
     user = relationship("User", back_populates="user_badges")
+    learning_center = relationship("LearningCenter")
 
-    # Unique constraint: one badge per category per user (level can increase)
+    # Unique constraint: one badge per category per user per learning center (level can increase)
     __table_args__ = (
-        UniqueConstraint('user_id', 'category', name='uix_user_badge_category'),
+        UniqueConstraint('user_id', 'category', 'learning_center_id', name='uix_user_badge_category_center'),
     )
-
-    def __str__(self):
-        return f"UserBadge({self.user_id}, {self.category.value}, Level {self.level})"
-
-    def can_level_up(self, current_count: int) -> bool:
-        """Check if badge can be leveled up based on current count"""
-
-        thresholds = LEVEL_THRESHOLDS.get(self.category.value, [])
-        if not thresholds:
-            return False
-
-        max_level = len(thresholds)
-        return self.level < max_level and current_count >= thresholds[self.level]
-
-    def level_up(self) -> bool:
-        """Level up the badge"""
-
-        thresholds = LEVEL_THRESHOLDS.get(self.category.value, [])
-        if self.level < len(thresholds):
-            self.level += 1
-            # Update badge info for new level
-            badge_info = BADGE_INFO.get(self.category.value, {})
-            self.title = f"{badge_info.get('name', '')} Level {self.level}"
-            self.description = f"{badge_info.get('description', '')} - Level {self.level}"
-            return True
-        return False

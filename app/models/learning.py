@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, ForeignKey, Boolean, Float, DateTime, JSON, Text
+from sqlalchemy import Column, String, Integer, ForeignKey, Boolean, Float, DateTime, JSON, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .base import BaseModel
@@ -10,6 +10,9 @@ class Progress(BaseModel):
     # User and lesson
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=False)
+
+    # ADDED: Learning center for separation
+    learning_center_id = Column(Integer, ForeignKey("learning_centers.id"), nullable=False)
 
     # Progress tracking (percentage-based points: 90% = 90 points)
     completion_percentage = Column(Float, default=0.0)  # 0-100
@@ -24,9 +27,15 @@ class Progress(BaseModel):
     # Relationships
     user = relationship("User", back_populates="progress_records")
     lesson = relationship("Lesson", back_populates="progress_records")
+    learning_center = relationship("LearningCenter")
+
+    # Unique constraint: one progress record per user per lesson per learning center
+    __table_args__ = (
+        UniqueConstraint('user_id', 'lesson_id', 'learning_center_id', name='uq_progress_user_lesson_center'),
+    )
 
     def __str__(self):
-        return f"Progress({self.user_id}, {self.lesson_id}, {self.completion_percentage}%)"
+        return f"Progress({self.user_id}, {self.lesson_id}, {self.learning_center_id}, {self.completion_percentage}%)"
 
     @property
     def accuracy(self):
@@ -52,7 +61,10 @@ class QuizSession(BaseModel):
 
     # Session identification
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=True)
+    lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=True)  # Nullable for practice sessions
+
+    # ADDED: Learning center for separation
+    learning_center_id = Column(Integer, ForeignKey("learning_centers.id"), nullable=False)
 
     # Session data
     quiz_results = Column(JSON)  # Store word_id -> correct/incorrect mapping
@@ -68,9 +80,10 @@ class QuizSession(BaseModel):
     # Relationships
     user = relationship("User", back_populates="quiz_sessions")
     lesson = relationship("Lesson", back_populates="quiz_sessions")
+    learning_center = relationship("LearningCenter")
 
     def __str__(self):
-        return f"QuizSession({self.user_id}, {self.lesson_id})"
+        return f"QuizSession({self.user_id}, {self.lesson_id}, {self.learning_center_id})"
 
     @property
     def accuracy(self):
@@ -93,6 +106,9 @@ class WeakWord(BaseModel):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     word_id = Column(Integer, ForeignKey("words.id"), nullable=False)
 
+    # ADDED: Learning center for separation - same word can be weak in one center, strong in another
+    learning_center_id = Column(Integer, ForeignKey("learning_centers.id"), nullable=False)
+
     # Performance tracking (last 7 quiz results)
     last_7_results = Column(String(7), default="")  # "1010110" format: 1=correct, 0=incorrect
     total_attempts = Column(Integer, default=0)
@@ -105,9 +121,15 @@ class WeakWord(BaseModel):
     # Relationships
     user = relationship("User", back_populates="weak_words")
     word = relationship("Word", back_populates="weak_words")
+    learning_center = relationship("LearningCenter")
+
+    # Unique constraint: one weak word record per user per word per learning center
+    __table_args__ = (
+        UniqueConstraint('user_id', 'word_id', 'learning_center_id', name='uq_weak_word_user_word_center'),
+    )
 
     def __str__(self):
-        return f"WeakWord({self.user_id}, {self.word_id}, {self.strength})"
+        return f"WeakWord({self.user_id}, {self.word_id}, {self.learning_center_id}, {self.strength})"
 
     @property
     def recent_accuracy(self):
