@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, ForeignKey, Boolean, Text, Index
+from sqlalchemy import Column, String, Integer, ForeignKey, Text, Index, CheckConstraint
 from sqlalchemy.orm import relationship
 from .base import BaseModel
 
@@ -6,30 +6,36 @@ from .base import BaseModel
 class Group(BaseModel):
     __tablename__ = "groups"
 
-    # Basic info
+    # Basic info with validation
     title = Column(String(100), nullable=False)
     schedule = Column(String(200))  # "Mon,Wed,Fri 10:00-12:00"
     description = Column(Text)
-    is_active = Column(Boolean, default=True, nullable=False)
 
-    # Relationships
+    # Relationships - clean and simple
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=False)
     course_id = Column(Integer, ForeignKey("courses.id"), nullable=True)
     teacher_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    learning_center_id = Column(Integer, ForeignKey("learning_centers.id"), nullable=False)
 
-    # Related objects
+    # Derived learning center through branch relationship
     branch = relationship("Branch", back_populates="groups")
     course = relationship("Course")
-    teacher = relationship("User", foreign_keys=[teacher_id], back_populates="teacher_groups")
-    learning_center = relationship("LearningCenter", back_populates="groups")
+    teacher = relationship("User", foreign_keys=[teacher_id])
     student_memberships = relationship("StudentGroup", back_populates="group", cascade="all, delete-orphan")
     leaderboard_entries = relationship("LeaderboardEntry", back_populates="group", cascade="all, delete-orphan")
 
-    # Indexes
+    # For convenience - get learning center through branch
+    @property
+    def learning_center(self):
+        return self.branch.learning_center if self.branch else None
+
+    @property
+    def learning_center_id(self):
+        return self.branch.learning_center_id if self.branch else None
+
+    # Constraints
     __table_args__ = (
+        CheckConstraint("length(title) >= 2", name='chk_title_length'),
         Index('idx_branch_active', 'branch_id', 'is_active'),
-        Index('idx_center_active', 'learning_center_id', 'is_active'),
         Index('idx_teacher_active', 'teacher_id', 'is_active'),
     )
 
@@ -49,31 +55,3 @@ class Group(BaseModel):
     @property
     def teacher_name(self):
         return self.teacher.full_name if self.teacher else "No teacher assigned"
-
-    def add_student(self, user_id: int, added_by_id: int = None):
-        """Add student to group"""
-        # Check if already exists and active
-        existing = next((m for m in self.student_memberships
-                        if m.user_id == user_id and m.is_active), None)
-        if existing:
-            return False
-
-        # Create new membership
-        from .user import StudentGroup
-        membership = StudentGroup(
-            user_id=user_id,
-            group_id=self.id,
-            learning_center_id=self.learning_center_id,
-            added_by_id=added_by_id
-        )
-        self.student_memberships.append(membership)
-        return True
-
-    def remove_student(self, user_id: int):
-        """Remove student from group"""
-        membership = next((m for m in self.student_memberships
-                          if m.user_id == user_id and m.is_active), None)
-        if membership:
-            membership.is_active = False
-            return True
-        return False

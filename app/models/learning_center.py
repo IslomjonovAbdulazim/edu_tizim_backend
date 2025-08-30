@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, Text, Integer, Date, Numeric, ForeignKey, Index
+from sqlalchemy import Column, String, Boolean, Text, Integer, Date, Numeric, ForeignKey, Index, CheckConstraint
 from sqlalchemy.orm import relationship
 from datetime import date
 from .base import BaseModel
@@ -7,7 +7,7 @@ from .base import BaseModel
 class LearningCenter(BaseModel):
     __tablename__ = "learning_centers"
 
-    # Basic info
+    # Basic info with constraints
     brand_name = Column(String(100), nullable=False)
     phone_number = Column(String(20), nullable=False, unique=True, index=True)
 
@@ -15,17 +15,13 @@ class LearningCenter(BaseModel):
     telegram_contact = Column(String(100))
     instagram_contact = Column(String(100))
 
-    # Limitations
-    max_students = Column(Integer, default=1000)
-    max_branches = Column(Integer, default=5)
+    # Business limits
+    max_students = Column(Integer, default=1000, nullable=False)
+    max_branches = Column(Integer, default=5, nullable=False)
 
-    # Payment & Subscription
+    # Subscription
     remaining_days = Column(Integer, default=0, nullable=False)
-    expires_at = Column(Date)
-    total_paid = Column(Numeric(10, 2), default=0.00)
-
-    # Status
-    is_active = Column(Boolean, default=False, nullable=False)  # Blocked until payment
+    total_paid = Column(Numeric(10, 2), default=0.00, nullable=False)
 
     # Relationships
     user_roles = relationship("UserCenterRole", back_populates="learning_center", cascade="all, delete-orphan")
@@ -33,15 +29,15 @@ class LearningCenter(BaseModel):
     courses = relationship("Course", back_populates="learning_center", cascade="all, delete-orphan")
     payments = relationship("Payment", back_populates="learning_center", cascade="all, delete-orphan")
     groups = relationship("Group", back_populates="learning_center")
-    progress_records = relationship("Progress", back_populates="learning_center")
-    quiz_sessions = relationship("QuizSession", back_populates="learning_center")
-    weak_words = relationship("WeakWord", back_populates="learning_center")
-    badges = relationship("UserBadge", back_populates="learning_center")
-    leaderboard_entries = relationship("LeaderboardEntry", back_populates="learning_center")
 
-    # Indexes
+    # Constraints
     __table_args__ = (
-        Index('idx_active_expires', 'is_active', 'expires_at'),
+        CheckConstraint('max_students > 0', name='chk_max_students_positive'),
+        CheckConstraint('max_branches > 0', name='chk_max_branches_positive'),
+        CheckConstraint('remaining_days >= 0', name='chk_remaining_days_valid'),
+        CheckConstraint('total_paid >= 0', name='chk_total_paid_valid'),
+        CheckConstraint("length(brand_name) >= 2", name='chk_brand_name_length'),
+        Index('idx_active_remaining', 'is_active', 'remaining_days'),
     )
 
     def __str__(self):
@@ -55,15 +51,6 @@ class LearningCenter(BaseModel):
     def is_expiring_soon(self):
         return 0 < self.remaining_days <= 7
 
-    def get_users_by_role(self, role: str, active_only: bool = True):
-        """Get users with specific role in this center"""
-        roles = self.user_roles
-        if active_only:
-            roles = [r for r in roles if r.is_active]
-        if role:
-            roles = [r for r in roles if r.role.lower() == role.lower()]
-        return [r.user for r in roles]
-
 
 class Branch(BaseModel):
     __tablename__ = "branches"
@@ -72,12 +59,9 @@ class Branch(BaseModel):
     title = Column(String(100), nullable=False)
     description = Column(Text)
 
-    # Location
+    # Location (optional)
     latitude = Column(Numeric(10, 8))
     longitude = Column(Numeric(11, 8))
-
-    # Status
-    is_active = Column(Boolean, default=True, nullable=False)
 
     # Learning center relationship
     learning_center_id = Column(Integer, ForeignKey("learning_centers.id"), nullable=False)
@@ -86,20 +70,14 @@ class Branch(BaseModel):
     # Relationships
     groups = relationship("Group", back_populates="branch", cascade="all, delete-orphan")
 
-    # Indexes
+    # Constraints
     __table_args__ = (
+        CheckConstraint("length(title) >= 2", name='chk_title_length'),
         Index('idx_center_active', 'learning_center_id', 'is_active'),
-        Index('idx_location', 'latitude', 'longitude'),
     )
 
     def __str__(self):
         return f"Branch({self.title})"
-
-    @property
-    def coordinates(self):
-        if self.latitude and self.longitude:
-            return {"latitude": float(self.latitude), "longitude": float(self.longitude)}
-        return None
 
 
 class Payment(BaseModel):
@@ -113,18 +91,14 @@ class Payment(BaseModel):
     amount = Column(Numeric(10, 2), nullable=False)
     days_added = Column(Integer, nullable=False)
     payment_date = Column(Date, nullable=False, default=date.today)
-
-    # Status
     status = Column(String(20), default="completed", nullable=False)
     notes = Column(Text)
 
-    # Audit
-    processed_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-
-    # Indexes
+    # Constraints
     __table_args__ = (
+        CheckConstraint('amount > 0', name='chk_amount_positive'),
+        CheckConstraint('days_added > 0', name='chk_days_positive'),
         Index('idx_center_date', 'learning_center_id', 'payment_date'),
-        Index('idx_status_date', 'status', 'payment_date'),
     )
 
     def __str__(self):

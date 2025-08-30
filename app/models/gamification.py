@@ -1,4 +1,5 @@
-from sqlalchemy import Column, String, Integer, ForeignKey, Boolean, Date, UniqueConstraint, Index, Enum
+from sqlalchemy import Column, String, Integer, ForeignKey, Boolean, Date, UniqueConstraint, Index, CheckConstraint, \
+    Enum
 from sqlalchemy.orm import relationship
 from datetime import date
 import enum
@@ -6,10 +7,9 @@ from .base import BaseModel
 
 
 class LeaderboardType(enum.Enum):
-    GLOBAL_3_DAILY = "global_3_daily"
-    GLOBAL_ALL_TIME = "global_all_time"
-    GROUP_3_DAILY = "group_3_daily"
-    GROUP_ALL_TIME = "group_all_time"
+    DAILY = "daily"  # Simple daily leaderboard
+    ALL_TIME = "all_time"  # All-time leaderboard
+    GROUP = "group"  # Group-specific leaderboard
 
 
 class LeaderboardEntry(BaseModel):
@@ -17,37 +17,41 @@ class LeaderboardEntry(BaseModel):
 
     # Core identification
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    learning_center_id = Column(Integer, ForeignKey("learning_centers.id"), nullable=False)
     leaderboard_type = Column(Enum(LeaderboardType), nullable=False)
 
     # Optional group (for group leaderboards)
     group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
 
-    # Date (for 3-daily leaderboards, null for all-time)
+    # Date (for daily leaderboards, null for all-time)
     leaderboard_date = Column(Date, nullable=True)
 
-    # Ranking data
+    # Ranking data with validation
     rank = Column(Integer, nullable=False)
     points = Column(Integer, nullable=False, default=0)
-    previous_rank = Column(Integer, nullable=True)
-    position_change = Column(Integer, default=0)
-
-    # Denormalized data for performance
     user_full_name = Column(String(100), nullable=False)
 
     # Relationships
     user = relationship("User", back_populates="leaderboard_entries")
-    learning_center = relationship("LearningCenter", back_populates="leaderboard_entries")
     group = relationship("Group", back_populates="leaderboard_entries")
+
+    # Get learning center through relationships
+    @property
+    def learning_center_id(self):
+        if self.group:
+            return self.group.learning_center_id
+        # For non-group leaderboards, get from user's first center role
+        user_roles = [r for r in self.user.center_roles if r.is_active]
+        return user_roles[0].learning_center_id if user_roles else None
 
     # Constraints
     __table_args__ = (
-        UniqueConstraint('user_id', 'learning_center_id', 'leaderboard_type', 'group_id', 'leaderboard_date',
-                         name='uq_leaderboard_entry'),
-        Index('idx_center_type_date', 'learning_center_id', 'leaderboard_type', 'leaderboard_date'),
-        Index('idx_group_type_date', 'group_id', 'leaderboard_type', 'leaderboard_date'),
-        Index('idx_user_center', 'user_id', 'learning_center_id'),
-        Index('idx_rank_points', 'rank', 'points'),
+        UniqueConstraint('user_id', 'leaderboard_type', 'group_id', 'leaderboard_date', name='uq_leaderboard'),
+        CheckConstraint('rank > 0', name='chk_rank_positive'),
+        CheckConstraint('points >= 0', name='chk_points_positive'),
+        CheckConstraint("length(user_full_name) >= 1", name='chk_name_length'),
+        Index('idx_type_date_rank', 'leaderboard_type', 'leaderboard_date', 'rank'),
+        Index('idx_group_type_rank', 'group_id', 'leaderboard_type', 'rank'),
+        Index('idx_user_type', 'user_id', 'leaderboard_type'),
     )
 
     def __str__(self):
@@ -57,20 +61,12 @@ class LeaderboardEntry(BaseModel):
     def is_top_3(self):
         return self.rank <= 3
 
-    @property
-    def position_improved(self):
-        return self.position_change > 0
-
-    @property
-    def is_3_daily(self):
-        return self.leaderboard_type in [LeaderboardType.GLOBAL_3_DAILY, LeaderboardType.GROUP_3_DAILY]
-
 
 class BadgeCategory(str, enum.Enum):
-    DAILY_FIRST = "daily_first"
+    FIRST_LESSON = "first_lesson"
     PERFECT_LESSON = "perfect_lesson"
-    WEAKLIST_SOLVER = "weaklist_solver"
-    POSITION_CLIMBER = "position_climber"
+    STREAK = "streak"
+    POINTS = "points"
 
 
 class UserBadge(BaseModel):
@@ -78,34 +74,34 @@ class UserBadge(BaseModel):
 
     # User and badge
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    learning_center_id = Column(Integer, ForeignKey("learning_centers.id"), nullable=False)
     category = Column(Enum(BadgeCategory), nullable=False)
 
-    # Badge level
-    level = Column(Integer, default=1)
-
-    # Badge info
+    # Badge details with validation
     title = Column(String(100), nullable=False)
     description = Column(String(200), nullable=False)
-    image_url = Column(String(500), nullable=False)
+    level = Column(Integer, default=1, nullable=False)
 
     # Status
-    is_active = Column(Boolean, default=True)
-    earned_at = Column(Date, default=date.today)
-    is_seen = Column(Boolean, default=False)
-    seen_at = Column(Date, nullable=True)
+    earned_at = Column(Date, default=date.today, nullable=False)
+    is_seen = Column(Boolean, default=False, nullable=False)
 
     # Relationships
     user = relationship("User", back_populates="badges")
-    learning_center = relationship("LearningCenter", back_populates="badges")
 
-    # Unique constraint: one badge per category per user per center
+    # Get learning center through user relationship
+    @property
+    def learning_center_id(self):
+        user_roles = [r for r in self.user.center_roles if r.is_active]
+        return user_roles[0].learning_center_id if user_roles else None
+
+    # Constraints
     __table_args__ = (
-        UniqueConstraint('user_id', 'learning_center_id', 'category', name='uq_user_badge_category_center'),
-        Index('idx_user_center', 'user_id', 'learning_center_id'),
-        Index('idx_center_active', 'learning_center_id', 'is_active'),
+        UniqueConstraint('user_id', 'category', name='uq_user_badge'),
+        CheckConstraint('level > 0', name='chk_level_positive'),
+        CheckConstraint("length(title) >= 1", name='chk_title_length'),
+        Index('idx_user_earned', 'user_id', 'earned_at'),
+        Index('idx_category_level', 'category', 'level'),
         Index('idx_user_seen', 'user_id', 'is_seen'),
-        Index('idx_earned_date', 'earned_at'),
     )
 
     def __str__(self):
@@ -113,29 +109,4 @@ class UserBadge(BaseModel):
 
     def mark_as_seen(self):
         """Mark badge as seen by user"""
-        if not self.is_seen:
-            self.is_seen = True
-            self.seen_at = date.today()
-
-    def can_level_up(self, current_count: int) -> bool:
-        """Check if badge can be leveled up based on current count"""
-        # Define thresholds for each category
-        thresholds = {
-            BadgeCategory.DAILY_FIRST: [1, 3, 5, 10, 20, 30, 50],
-            BadgeCategory.PERFECT_LESSON: [1, 5, 10, 25, 50, 100, 200],
-            BadgeCategory.WEAKLIST_SOLVER: [1, 5, 10, 25, 50, 100, 200],
-            BadgeCategory.POSITION_CLIMBER: [1, 3, 5, 10, 20, 30, 50]
-        }
-
-        category_thresholds = thresholds.get(self.category, [])
-        if not category_thresholds or self.level >= len(category_thresholds):
-            return False
-
-        return current_count >= category_thresholds[self.level]
-
-    def level_up(self):
-        """Level up the badge"""
-        self.level += 1
-        self.earned_at = date.today()
-        self.is_seen = False  # New level needs to be seen
-        self.seen_at = None
+        self.is_seen = True

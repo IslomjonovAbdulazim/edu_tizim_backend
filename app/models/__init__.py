@@ -1,4 +1,4 @@
-# Import all models
+# Import all simplified models
 from .base import BaseModel
 from .user import User, UserRole, UserCenterRole, StudentGroup
 from .learning_center import LearningCenter, Branch, Payment
@@ -12,7 +12,7 @@ __all__ = [
     # Base
     "BaseModel",
 
-    # User system
+    # User system - simplified multi-tenant roles
     "User",
     "UserRole",
     "UserCenterRole",
@@ -23,7 +23,7 @@ __all__ = [
     "Branch",
     "Payment",
 
-    # Content structure
+    # Content structure - clean hierarchy
     "Course",
     "Module",
     "Lesson",
@@ -32,17 +32,17 @@ __all__ = [
     # Group management
     "Group",
 
-    # Learning & progress
+    # Learning & progress - simplified tracking
     "Progress",
     "QuizSession",
     "WeakWord",
 
-    # Gamification
+    # Gamification - streamlined engagement
     "LeaderboardEntry",
     "LeaderboardType",
     "UserBadge",
     "BadgeCategory",
 
-    # Verification
+    # Verification - secure and simple
     "VerificationCode"
 ]

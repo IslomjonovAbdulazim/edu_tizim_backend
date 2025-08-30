@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, ForeignKey, Boolean, Text, Index
+from sqlalchemy import Column, String, Integer, ForeignKey, Boolean, Text, Index, CheckConstraint
 from sqlalchemy.orm import relationship
 from .base import BaseModel
 
@@ -6,14 +6,13 @@ from .base import BaseModel
 class Course(BaseModel):
     __tablename__ = "courses"
 
-    # Basic info
+    # Basic info with validation
     name = Column(String(100), nullable=False)
     description = Column(Text)
-    level = Column(String(20), nullable=False, default="beginner")  # beginner, intermediate, advanced
-    is_active = Column(Boolean, default=True, nullable=False)
-    order_index = Column(Integer, default=0)
+    level = Column(String(20), nullable=False, default="beginner")
+    order_index = Column(Integer, default=0, nullable=False)
 
-    # Learning center
+    # Learning center relationship
     learning_center_id = Column(Integer, ForeignKey("learning_centers.id"), nullable=False)
     learning_center = relationship("LearningCenter", back_populates="courses")
 
@@ -21,36 +20,26 @@ class Course(BaseModel):
     modules = relationship("Module", back_populates="course", cascade="all, delete-orphan",
                            order_by="Module.order_index")
 
-    # Indexes
+    # Constraints
     __table_args__ = (
+        CheckConstraint("level IN ('beginner', 'intermediate', 'advanced')", name='chk_valid_level'),
+        CheckConstraint("length(name) >= 2", name='chk_name_length'),
+        CheckConstraint("order_index >= 0", name='chk_order_positive'),
         Index('idx_center_active', 'learning_center_id', 'is_active'),
         Index('idx_center_order', 'learning_center_id', 'order_index'),
     )
 
     def __str__(self):
-        return f"Course({self.name}, {self.level})"
-
-    @property
-    def total_modules(self):
-        return len([m for m in self.modules if m.is_active])
-
-    @property
-    def total_lessons(self):
-        return sum(m.total_lessons for m in self.modules if m.is_active)
-
-    @property
-    def total_words(self):
-        return sum(m.total_words for m in self.modules if m.is_active)
+        return f"Course({self.name})"
 
 
 class Module(BaseModel):
     __tablename__ = "modules"
 
-    # Basic info
+    # Basic info with validation
     title = Column(String(100), nullable=False)
     description = Column(Text)
-    is_active = Column(Boolean, default=True, nullable=False)
-    order_index = Column(Integer, default=0)
+    order_index = Column(Integer, default=0, nullable=False)
 
     # Course relationship
     course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
@@ -60,8 +49,10 @@ class Module(BaseModel):
     lessons = relationship("Lesson", back_populates="module", cascade="all, delete-orphan",
                            order_by="Lesson.order_index")
 
-    # Indexes
+    # Constraints
     __table_args__ = (
+        CheckConstraint("length(title) >= 2", name='chk_title_length'),
+        CheckConstraint("order_index >= 0", name='chk_order_positive'),
         Index('idx_course_active', 'course_id', 'is_active'),
         Index('idx_course_order', 'course_id', 'order_index'),
     )
@@ -69,24 +60,15 @@ class Module(BaseModel):
     def __str__(self):
         return f"Module({self.title})"
 
-    @property
-    def total_lessons(self):
-        return len([l for l in self.lessons if l.is_active])
-
-    @property
-    def total_words(self):
-        return sum(l.total_words for l in self.lessons if l.is_active)
-
 
 class Lesson(BaseModel):
     __tablename__ = "lessons"
 
-    # Basic info
+    # Basic info with validation
     title = Column(String(100), nullable=False)
     description = Column(Text)
-    content = Column(Text)  # Markdown content for lesson explanations
-    is_active = Column(Boolean, default=True, nullable=False)
-    order_index = Column(Integer, default=0)
+    content = Column(Text)  # Markdown content
+    order_index = Column(Integer, default=0, nullable=False)
 
     # Module relationship
     module_id = Column(Integer, ForeignKey("modules.id"), nullable=False)
@@ -98,8 +80,10 @@ class Lesson(BaseModel):
     progress_records = relationship("Progress", back_populates="lesson", cascade="all, delete-orphan")
     quiz_sessions = relationship("QuizSession", back_populates="lesson", cascade="all, delete-orphan")
 
-    # Indexes
+    # Constraints
     __table_args__ = (
+        CheckConstraint("length(title) >= 2", name='chk_title_length'),
+        CheckConstraint("order_index >= 0", name='chk_order_positive'),
         Index('idx_module_active', 'module_id', 'is_active'),
         Index('idx_module_order', 'module_id', 'order_index'),
     )
@@ -107,28 +91,17 @@ class Lesson(BaseModel):
     def __str__(self):
         return f"Lesson({self.title})"
 
-    @property
-    def total_words(self):
-        return len([w for w in self.words if w.is_active])
-
-    @property
-    def has_content(self):
-        return bool(self.content and self.content.strip())
-
 
 class Word(BaseModel):
     __tablename__ = "words"
 
-    # Word content
-    foreign_form = Column(String(100), nullable=False)  # English word
-    native_form = Column(String(100), nullable=False)  # Uzbek translation
+    # Word content with validation
+    foreign_form = Column(String(100), nullable=False)
+    native_form = Column(String(100), nullable=False)
     example_sentence = Column(Text)
-    audio_url = Column(String(255))
-    image_url = Column(String(255))
-
-    # Status and ordering
-    is_active = Column(Boolean, default=True, nullable=False)
-    order_index = Column(Integer, default=0)
+    audio_url = Column(String(500))
+    image_url = Column(String(500))
+    order_index = Column(Integer, default=0, nullable=False)
 
     # Lesson relationship
     lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=False)
@@ -137,21 +110,14 @@ class Word(BaseModel):
     # Relationships
     weak_words = relationship("WeakWord", back_populates="word", cascade="all, delete-orphan")
 
-    # Indexes
+    # Constraints
     __table_args__ = (
+        CheckConstraint("length(foreign_form) >= 1", name='chk_foreign_length'),
+        CheckConstraint("length(native_form) >= 1", name='chk_native_length'),
+        CheckConstraint("order_index >= 0", name='chk_order_positive'),
         Index('idx_lesson_active', 'lesson_id', 'is_active'),
         Index('idx_lesson_order', 'lesson_id', 'order_index'),
-        Index('idx_foreign_form', 'foreign_form'),
-        Index('idx_native_form', 'native_form'),
     )
 
     def __str__(self):
         return f"Word({self.foreign_form} → {self.native_form})"
-
-    @property
-    def has_image(self):
-        return bool(self.image_url)
-
-    @property
-    def has_audio(self):
-        return bool(self.audio_url)
