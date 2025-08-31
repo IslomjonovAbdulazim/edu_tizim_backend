@@ -445,6 +445,33 @@ def change_center_password(
     return APIResponse.success({"message": "Center admin password updated successfully"})
 
 
+@router.patch("/centers/{center_id}/student-limit")
+def change_center_student_limit(
+        center_id: int,
+        limit_data: schemas.StudentLimitChangeRequest,
+        current_user: dict = Depends(get_super_admin_user),
+        db: Session = Depends(get_db)
+):
+    """Change learning center student capacity limit"""
+    center = db.query(LearningCenter).filter(LearningCenter.id == center_id).first()
+    if not center:
+        raise HTTPException(status_code=404, detail="Center not found")
+
+    if limit_data.new_student_limit < 1:
+        raise HTTPException(status_code=400, detail="Student limit must be at least 1")
+
+    # Update student limit
+    old_limit = center.student_limit
+    center.student_limit = limit_data.new_student_limit
+    db.commit()
+
+    return APIResponse.success({
+        "message": "Center student limit updated successfully",
+        "old_limit": old_limit,
+        "new_limit": limit_data.new_student_limit
+    })
+
+
 # System Analytics
 @router.get("/analytics/revenue")
 def get_revenue_analytics(

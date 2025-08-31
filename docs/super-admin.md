@@ -413,6 +413,43 @@ Change learning center admin password
 }
 ```
 
+### PATCH /super-admin/centers/{center_id}/student-limit
+Change learning center student capacity limit
+
+**Request:**
+```json
+{
+  "new_student_limit": 150
+}
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Center student limit updated successfully",
+    "old_limit": 100,
+    "new_limit": 150
+  }
+}
+```
+
+**Response (Error):**
+```json
+{
+  "success": false,
+  "detail": "Center not found"
+}
+```
+
+```json
+{
+  "success": false,
+  "detail": "Student limit must be at least 1"
+}
+```
+
 ## Error Responses
 
 All endpoints can return these common errors:

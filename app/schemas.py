@@ -228,6 +228,9 @@ class PasswordChangeRequest(BaseModel):
 class AdminPasswordChangeRequest(BaseModel):
     new_password: str
 
+class StudentLimitChangeRequest(BaseModel):
+    new_student_limit: int
+
 # Response Schemas
 class ApiResponse(BaseModel):
     success: bool
