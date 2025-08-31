@@ -1,34 +1,40 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+
+from .. import schemas
 from ..database import get_db
 from ..models import *
-from ..services import ContentService
-from ..utils import APIResponse
-
+from ..services import ContentService, ProgressService
+from ..utils import APIResponse, get_current_user_data
 
 router = APIRouter()
 
 
 @router.get("/courses")
-def get_public_courses(
-        center_id: int = None,
+def get_courses(
+        center_id: int = Query(..., description="Learning center ID"),
         db: Session = Depends(get_db)
 ):
-    """Get available courses (public endpoint)"""
-    if not center_id:
-        raise HTTPException(status_code=400, detail="center_id required")
-
+    """Get available courses for a center (public access)"""
     courses = db.query(Course).filter(
         Course.center_id == center_id,
         Course.is_active == True
     ).all()
 
-    return APIResponse.success(courses)
+    if not courses:
+        return APIResponse.success([], "No courses found for this center")
+
+    return APIResponse.success([{
+        "id": course.id,
+        "title": course.title,
+        "description": course.description,
+        "created_at": course.created_at
+    } for course in courses])
 
 
 @router.get("/courses/{course_id}")
 def get_course_structure(course_id: int, db: Session = Depends(get_db)):
-    """Get course structure with modules and lessons"""
+    """Get complete course structure with modules and lessons"""
     course = db.query(Course).filter(
         Course.id == course_id,
         Course.is_active == True
@@ -37,48 +43,29 @@ def get_course_structure(course_id: int, db: Session = Depends(get_db)):
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
-    # Get full content structure using cached service
+    # Get cached content
     content = ContentService.get_course_content(db, course.center_id)
 
-    # Filter for requested course
+    # Find the specific course
     course_content = next((c for c in content if c["id"] == course_id), None)
-
     if not course_content:
         raise HTTPException(status_code=404, detail="Course content not found")
 
     return APIResponse.success(course_content)
 
 
-@router.get("/courses/{course_id}/modules")
-def get_course_modules(course_id: int, db: Session = Depends(get_db)):
-    """Get modules in a course"""
-    modules = db.query(Module).filter(
-        Module.course_id == course_id,
-        Module.is_active == True
-    ).order_by(Module.order_index).all()
-
-    return APIResponse.success(modules)
-
-
-@router.get("/modules/{module_id}/lessons")
-def get_module_lessons(module_id: int, db: Session = Depends(get_db)):
-    """Get lessons in a module"""
-    lessons = db.query(Lesson).filter(
-        Lesson.module_id == module_id,
-        Lesson.is_active == True
-    ).order_by(Lesson.order_index).all()
-
-    return APIResponse.success(lessons)
-
-
 @router.get("/lessons/{lesson_id}/words")
 def get_lesson_words(lesson_id: int, db: Session = Depends(get_db)):
-    """Get words in a lesson"""
-    words = db.query(Word).filter(
-        Word.lesson_id == lesson_id,
-        Word.is_active == True
-    ).order_by(Word.order_index).all()
+    """Get all words in a lesson"""
+    lesson = db.query(Lesson).filter(
+        Lesson.id == lesson_id,
+        Lesson.is_active == True
+    ).first()
 
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+
+    words = ContentService.get_lesson_words(db, lesson_id)
     return APIResponse.success(words)
 
 
@@ -93,20 +80,26 @@ def get_word_details(word_id: int, db: Session = Depends(get_db)):
     if not word:
         raise HTTPException(status_code=404, detail="Word not found")
 
-    return APIResponse.success(word)
+    return APIResponse.success({
+        "id": word.id,
+        "word": word.word,
+        "meaning": word.meaning,
+        "definition": word.definition,
+        "example_sentence": word.example_sentence,
+        "image_url": word.image_url,
+        "audio_url": word.audio_url
+    })
 
 
 @router.get("/search")
 def search_content(
-        q: str,
-        center_id: int,
-        content_type: str = "all",  # "courses", "lessons", "words", "all"
+        q: str = Query(..., min_length=2, description="Search query"),
+        center_id: int = Query(..., description="Learning center ID"),
+        content_type: str = Query("all", regex="^(courses|lessons|words|all)$"),
+        limit: int = Query(20, le=50),
         db: Session = Depends(get_db)
 ):
     """Search through content"""
-    if not q or len(q) < 2:
-        raise HTTPException(status_code=400, detail="Search query too short")
-
     results = {}
 
     if content_type in ["courses", "all"]:
@@ -115,7 +108,7 @@ def search_content(
             Course.is_active == True,
             Course.title.ilike(f"%{q}%")
         ).limit(10).all()
-        results["courses"] = courses
+        results["courses"] = [{"id": c.id, "title": c.title, "description": c.description} for c in courses]
 
     if content_type in ["lessons", "all"]:
         lessons = db.query(Lesson).join(Module).join(Course).filter(
@@ -125,7 +118,7 @@ def search_content(
             Lesson.is_active == True,
             Lesson.title.ilike(f"%{q}%")
         ).limit(10).all()
-        results["lessons"] = lessons
+        results["lessons"] = [{"id": l.id, "title": l.title, "module_id": l.module_id} for l in lessons]
 
     if content_type in ["words", "all"]:
         words = db.query(Word).join(Lesson).join(Module).join(Course).filter(
@@ -135,16 +128,46 @@ def search_content(
             Lesson.is_active == True,
             Word.is_active == True,
             Word.word.ilike(f"%{q}%")
-        ).limit(20).all()
-        results["words"] = words
+        ).limit(limit).all()
+        results["words"] = [{"id": w.id, "word": w.word, "meaning": w.meaning, "lesson_id": w.lesson_id} for w in words]
 
     return APIResponse.success(results)
+
+
+@router.get("/random-words")
+def get_random_words(
+        center_id: int = Query(..., description="Learning center ID"),
+        count: int = Query(10, le=50, description="Number of random words"),
+        db: Session = Depends(get_db)
+):
+    """Get random words for practice"""
+    words = db.query(Word).join(Lesson).join(Module).join(Course).filter(
+        Course.center_id == center_id,
+        Course.is_active == True,
+        Module.is_active == True,
+        Lesson.is_active == True,
+        Word.is_active == True
+    ).order_by(func.random()).limit(count).all()
+
+    return APIResponse.success([{
+        "id": w.id,
+        "word": w.word,
+        "meaning": w.meaning,
+        "definition": w.definition,
+        "example_sentence": w.example_sentence,
+        "image_url": w.image_url,
+        "audio_url": w.audio_url,
+        "lesson_id": w.lesson_id
+    } for w in words])
 
 
 @router.get("/stats/{course_id}")
 def get_course_stats(course_id: int, db: Session = Depends(get_db)):
     """Get course statistics"""
-    # Count modules, lessons, words
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
     modules_count = db.query(Module).filter(
         Module.course_id == course_id,
         Module.is_active == True
@@ -163,36 +186,115 @@ def get_course_stats(course_id: int, db: Session = Depends(get_db)):
         Word.is_active == True
     ).count()
 
-    # Get enrolled students count
     enrolled_students = db.query(GroupMember).join(Group).filter(
         Group.course_id == course_id,
         Group.is_active == True
     ).count()
 
     return APIResponse.success({
-        "modules": modules_count,
-        "lessons": lessons_count,
-        "words": words_count,
-        "enrolled_students": enrolled_students
+        "course": {
+            "id": course.id,
+            "title": course.title,
+            "description": course.description
+        },
+        "stats": {
+            "modules": modules_count,
+            "lessons": lessons_count,
+            "words": words_count,
+            "enrolled_students": enrolled_students
+        }
     })
 
 
-@router.get("/random-words")
-def get_random_words(
-        center_id: int,
-        count: int = 10,
+# Student Progress Endpoints (Protected)
+@router.post("/progress/lesson", dependencies=[Depends(get_current_user_data)])
+def update_lesson_progress(
+        progress_data: schemas.ProgressUpdate,
+        current_user: dict = Depends(get_current_user_data),
         db: Session = Depends(get_db)
 ):
-    """Get random words for practice"""
-    if count > 50:
-        count = 50
+    """Update student's lesson progress"""
+    if current_user["role"] != "student":
+        raise HTTPException(status_code=403, detail="Only students can update progress")
 
-    words = db.query(Word).join(Lesson).join(Module).join(Course).filter(
-        Course.center_id == center_id,
-        Course.is_active == True,
-        Module.is_active == True,
-        Lesson.is_active == True,
-        Word.is_active == True
-    ).order_by(func.random()).limit(count).all()
+    if not current_user["profile"]:
+        raise HTTPException(status_code=403, detail="No active profile found")
 
-    return APIResponse.success(words)
+    ProgressService.update_lesson_progress(
+        db,
+        current_user["profile"].id,
+        progress_data.lesson_id,
+        progress_data.percentage
+    )
+
+    return APIResponse.success({"message": "Progress updated successfully"})
+
+
+@router.post("/progress/word", dependencies=[Depends(get_current_user_data)])
+def update_word_progress(
+        word_attempt: schemas.WordAttempt,
+        current_user: dict = Depends(get_current_user_data),
+        db: Session = Depends(get_db)
+):
+    """Update student's word-level progress"""
+    if current_user["role"] != "student":
+        raise HTTPException(status_code=403, detail="Only students can update word progress")
+
+    if not current_user["profile"]:
+        raise HTTPException(status_code=403, detail="No active profile found")
+
+    ProgressService.update_word_progress(
+        db,
+        current_user["profile"].id,
+        word_attempt.word_id,
+        word_attempt.correct
+    )
+
+    return APIResponse.success({"message": "Word progress updated"})
+
+
+@router.get("/my-progress", dependencies=[Depends(get_current_user_data)])
+def get_my_progress(
+        current_user: dict = Depends(get_current_user_data),
+        db: Session = Depends(get_db)
+):
+    """Get student's learning progress"""
+    if current_user["role"] != "student":
+        raise HTTPException(status_code=403, detail="Only students can view progress")
+
+    if not current_user["profile"]:
+        raise HTTPException(status_code=403, detail="No active profile found")
+
+    progress_records = db.query(Progress).filter(
+        Progress.profile_id == current_user["profile"].id
+    ).all()
+
+    total_coins = db.query(func.sum(Coin.amount)).filter(
+        Coin.profile_id == current_user["profile"].id
+    ).scalar() or 0
+
+    # Get weak words
+    weak_word_ids = ProgressService.get_weak_words(db, current_user["profile"].id, 10)
+    weak_words = []
+    if weak_word_ids:
+        weak_words = db.query(Word).filter(Word.id.in_(weak_word_ids)).all()
+
+    return APIResponse.success({
+        "progress": [{
+            "lesson_id": p.lesson_id,
+            "percentage": p.percentage,
+            "completed": p.completed,
+            "last_practiced": p.last_practiced
+        } for p in progress_records],
+        "summary": {
+            "total_lessons": len(progress_records),
+            "completed_lessons": len([p for p in progress_records if p.completed]),
+            "total_coins": total_coins,
+            "weak_words_count": len(weak_words)
+        },
+        "weak_words": [{
+            "id": w.id,
+            "word": w.word,
+            "meaning": w.meaning
+        } for w in weak_words]
+    })

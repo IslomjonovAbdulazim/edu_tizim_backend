@@ -3,25 +3,32 @@ from typing import Optional, List
 from datetime import datetime
 from models import UserRole
 
-
-# User Schemas
-class UserBase(BaseModel):
-    phone: Optional[str] = None
-    email: Optional[str] = None
-    avatar: Optional[str] = None
-    role: UserRole
-
-
-class UserCreate(UserBase):
-    password: Optional[str] = None
-    telegram_id: Optional[str] = None
-
+# Auth Schemas
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int = 2592000  # 30 days in seconds
 
 class UserLogin(BaseModel):
     email: Optional[str] = None
-    phone: Optional[str] = None
     password: Optional[str] = None
 
+class PhoneLogin(BaseModel):
+    phone: str
+    telegram_id: Optional[str] = None
+
+class VerificationRequest(BaseModel):
+    phone: str
+
+class VerificationCode(BaseModel):
+    phone: str
+    code: str
+
+# User Schemas
+class UserBase(BaseModel):
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    role: UserRole
 
 class User(UserBase):
     id: int
@@ -31,134 +38,113 @@ class User(UserBase):
     class Config:
         from_attributes = True
 
-
 # Learning Center Schemas
-class LearningCenterBase(BaseModel):
+class LearningCenterCreate(BaseModel):
     title: str
     logo: Optional[str] = None
     student_limit: int = 50
+    owner_email: str
+    owner_password: str
 
-
-class LearningCenterCreate(LearningCenterBase):
-    owner_id: int
-
-
-class LearningCenter(LearningCenterBase):
+class LearningCenter(BaseModel):
     id: int
+    title: str
+    logo: Optional[str] = None
     days_remaining: int
+    student_limit: int
     is_active: bool
-    owner_id: int
     created_at: datetime
 
     class Config:
         from_attributes = True
 
+# Profile Schemas
+class StudentCreate(BaseModel):
+    full_name: str
+    phone: str
+    telegram_id: Optional[str] = None
 
-# Learning Center Profile Schemas
-class ProfileBase(BaseModel):
+class TeacherCreate(BaseModel):
+    full_name: str
+    email: str
+    password: str
+
+class Profile(BaseModel):
+    id: int
     full_name: str
     role_in_center: UserRole
-
-
-class ProfileCreate(ProfileBase):
-    user_id: int
-    center_id: int
-
-
-class Profile(ProfileBase):
-    id: int
-    user_id: int
-    center_id: int
     is_active: bool
     created_at: datetime
 
     class Config:
         from_attributes = True
-
 
 # Group Schemas
-class GroupBase(BaseModel):
+class GroupCreate(BaseModel):
     name: str
-
-
-class GroupCreate(GroupBase):
     teacher_id: Optional[int] = None
     course_id: Optional[int] = None
 
-
-class Group(GroupBase):
+class Group(BaseModel):
     id: int
+    name: str
     center_id: int
     teacher_id: Optional[int] = None
     course_id: Optional[int] = None
     is_active: bool
-    created_at: datetime
 
     class Config:
         from_attributes = True
 
+class GroupMemberAdd(BaseModel):
+    profile_ids: List[int]
 
 # Course Content Schemas
-class CourseBase(BaseModel):
+class CourseCreate(BaseModel):
     title: str
     description: Optional[str] = None
 
-
-class CourseCreate(CourseBase):
-    center_id: int
-
-
-class Course(CourseBase):
+class Course(BaseModel):
     id: int
+    title: str
+    description: Optional[str] = None
     center_id: int
     is_active: bool
-    created_at: datetime
 
     class Config:
         from_attributes = True
 
-
-class ModuleBase(BaseModel):
+class ModuleCreate(BaseModel):
     title: str
     description: Optional[str] = None
     order_index: int = 0
 
-
-class ModuleCreate(ModuleBase):
-    course_id: int
-
-
-class Module(ModuleBase):
+class Module(BaseModel):
     id: int
-    course_id: int
+    title: str
+    description: Optional[str] = None
+    order_index: int
     is_active: bool
-    created_at: datetime
 
     class Config:
         from_attributes = True
 
-
-class LessonBase(BaseModel):
+class LessonCreate(BaseModel):
     title: str
     description: Optional[str] = None
     order_index: int = 0
 
-
-class LessonCreate(LessonBase):
-    module_id: int
-
-
-class Lesson(LessonBase):
+class Lesson(BaseModel):
     id: int
-    module_id: int
+    title: str
+    description: Optional[str] = None
+    order_index: int
     is_active: bool
-    created_at: datetime
 
     class Config:
         from_attributes = True
 
-
-class WordBase(BaseModel):
+class WordCreate(BaseModel):
     word: str
     meaning: str
     definition: Optional[str] = None
@@ -167,27 +153,36 @@ class WordBase(BaseModel):
     audio_url: Optional[str] = None
     order_index: int = 0
 
-
-class WordCreate(WordBase):
-    lesson_id: int
-
-
-class Word(WordBase):
+class Word(BaseModel):
     id: int
-    lesson_id: int
-    is_active: bool
-    created_at: datetime
+    word: str
+    meaning: str
+    definition: Optional[str] = None
+    example_sentence: Optional[str] = None
+    image_url: Optional[str] = None
+    audio_url: Optional[str] = None
+    order_index: int
 
     class Config:
         from_attributes = True
 
+class BulkWordCreate(BaseModel):
+    words: List[WordCreate]
 
 # Progress Schemas
 class ProgressUpdate(BaseModel):
     lesson_id: int
     percentage: int
-    completed: bool = False
 
+    @validator('percentage')
+    def validate_percentage(cls, v):
+        if v < 0 or v > 100:
+            raise ValueError('Percentage must be between 0 and 100')
+        return v
+
+class WordAttempt(BaseModel):
+    word_id: int
+    correct: bool
 
 class Progress(BaseModel):
     id: int
@@ -200,50 +195,12 @@ class Progress(BaseModel):
     class Config:
         from_attributes = True
 
-
-class WordAttempt(BaseModel):
-    word_id: int
-    correct: bool
-
-
-class WordProgress(BaseModel):
-    id: int
-    profile_id: int
-    word_id: int
-    last_seven_attempts: str
-    total_correct: int
-    total_attempts: int
-    last_practiced: datetime
-
-    class Config:
-        from_attributes = True
-
-
-# Coin/Points Schemas
-class CoinCreate(BaseModel):
-    amount: int = 1
-    source: str
-    source_id: Optional[int] = None
-
-
-class Coin(BaseModel):
-    id: int
-    profile_id: int
-    amount: int
-    source: str
-    source_id: Optional[int] = None
-    earned_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
+# Leaderboard Schema
 class LeaderboardEntry(BaseModel):
     profile_id: int
     full_name: str
     total_coins: int
     avatar: Optional[str] = None
-
 
 # Payment Schemas
 class PaymentCreate(BaseModel):
@@ -252,44 +209,23 @@ class PaymentCreate(BaseModel):
     days_added: int
     description: Optional[str] = None
 
-
 class Payment(BaseModel):
     id: int
     center_id: int
     amount: float
     days_added: int
     description: Optional[str] = None
-    created_by: int
     created_at: datetime
 
     class Config:
         from_attributes = True
 
+# Response Schemas
+class ApiResponse(BaseModel):
+    success: bool
+    message: str
+    data: Optional[dict] = None
 
-# Auth Schemas
-class Token(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
-
-
-class TokenData(BaseModel):
-    user_id: Optional[int] = None
-    center_id: Optional[int] = None
-
-
-# Phone Verification
-class PhoneVerification(BaseModel):
-    phone: str
-    telegram_id: str
-
-
-# Bulk Operations
-class BulkWordCreate(BaseModel):
-    lesson_id: int
-    words: List[WordBase]
-
-
-class GroupMemberAdd(BaseModel):
-    group_id: int
-    profile_ids: List[int]
+class PaginatedResponse(BaseModel):
+    success: bool
+    data: dict  # Contains items and pagination info

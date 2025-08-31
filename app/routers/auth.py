@@ -1,21 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-
-from .. import schemas
-from ..database import get_db
+from ..database import get_db, RedisService
+from ..main import get_current_user
 from ..models import *
 from ..services import AuthService
-from ..utils import create_access_token, verify_password, send_telegram_message, generate_verification_code
+from ..utils import APIResponse, format_phone, \
+    validate_phone, generate_verification_code, create_access_token, send_telegram_message
+from .. import schemas
 
 router = APIRouter()
-
-# Store verification codes temporarily (use Redis in production)
-verification_codes = {}
 
 
 @router.post("/login", response_model=schemas.Token)
 def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
-    """Login for admin/teacher with email/password"""
+    """Login for admin/teacher/super-admin with email/password"""
     if not user_data.email or not user_data.password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -26,16 +24,16 @@ def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
     if not user or not verify_password(user_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials"
+            detail="Invalid email or password"
         )
 
-    if not user.is_active:
+    if user.role == UserRole.STUDENT:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Account is inactive"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Students must use phone login"
         )
 
-    # Get user's learning center (for admin/teacher)
+    # Get user's center (for admin/teacher)
     center_id = None
     if user.role in [UserRole.ADMIN, UserRole.TEACHER]:
         profile = db.query(LearningCenterProfile).filter(
@@ -46,78 +44,97 @@ def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
             center_id = profile.center_id
 
     access_token = create_access_token(
-        data={"user_id": user.id, "center_id": center_id}
+        data={
+            "user_id": user.id,
+            "center_id": center_id,
+            "role": user.role.value
+        }
     )
 
     return schemas.Token(
         access_token=access_token,
-        refresh_token=access_token,  # Same for MVP
-        token_type="bearer"
+        token_type="bearer",
+        expires_in=2592000  # 30 days
     )
 
 
 @router.post("/student/request-code")
-def request_verification_code(phone_data: dict, db: Session = Depends(get_db)):
-    """Request verification code for student login"""
-    phone = phone_data.get("phone")
-    if not phone:
+def request_verification_code(
+        phone_data: schemas.VerificationRequest,
+        db: Session = Depends(get_db)
+):
+    """Request SMS/Telegram verification code for student"""
+    phone = format_phone(phone_data.phone)
+
+    if not validate_phone(phone):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Phone number required"
+            detail="Invalid phone number format"
         )
 
     user = AuthService.get_user_by_phone(db, phone)
     if not user or user.role != UserRole.STUDENT:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Student not found"
+            detail="Student not found with this phone number"
         )
 
-    if not user.telegram_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Telegram ID not registered"
-        )
-
-    # Generate verification code
+    # Generate and store verification code in Redis
     code = generate_verification_code()
-    verification_codes[phone] = code
 
-    # Send via Telegram
-    message = f"Your verification code is: {code}"
-    if send_telegram_message(user.telegram_id, message):
-        return {"message": "Verification code sent"}
-    else:
+    # Store with 5 minutes expiration
+    if not RedisService.store_verification_code(phone, code, 300):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to send verification code"
+            detail="Failed to generate verification code. Please try again."
         )
+
+    # Send via Telegram if available
+    success = False
+    if user.telegram_id:
+        message = f"🔐 Your verification code: {code}\n\nValid for 5 minutes."
+        success = send_telegram_message(user.telegram_id, message)
+
+    if not success:
+        # Clean up Redis if sending failed
+        RedisService.delete_verification_code(phone)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send verification code. Please check your Telegram ID."
+        )
+
+    return APIResponse.success({
+        "message": "Verification code sent to your Telegram",
+        "phone": phone,
+        "expires_in": 300
+    })
 
 
 @router.post("/student/verify", response_model=schemas.Token)
 def verify_student_code(
-        verification_data: dict,
+        verification_data: schemas.VerificationCode,
         db: Session = Depends(get_db)
 ):
     """Verify code and login student"""
-    phone = verification_data.get("phone")
-    code = verification_data.get("code")
+    phone = format_phone(verification_data.phone)
+    code = verification_data.code.strip()
 
     if not phone or not code:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Phone and code required"
+            detail="Phone and code are required"
         )
 
-    # Check verification code
-    if verification_codes.get(phone) != code:
+    # Check verification code from Redis
+    stored_code = RedisService.get_verification_code(phone)
+    if not stored_code or stored_code != code:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid verification code"
+            detail="Invalid or expired verification code"
         )
 
     # Remove used code
-    del verification_codes[phone]
+    RedisService.delete_verification_code(phone)
 
     user = AuthService.get_user_by_phone(db, phone)
     if not user:
@@ -135,30 +152,45 @@ def verify_student_code(
     center_id = profile.center_id if profile else None
 
     access_token = create_access_token(
-        data={"user_id": user.id, "center_id": center_id}
+        data={
+            "user_id": user.id,
+            "center_id": center_id,
+            "role": user.role.value
+        }
     )
 
     return schemas.Token(
         access_token=access_token,
-        refresh_token=access_token,
-        token_type="bearer"
+        token_type="bearer",
+        expires_in=2592000
     )
 
 
 @router.post("/student/telegram-login", response_model=schemas.Token)
-def telegram_login(
-        telegram_data: schemas.PhoneVerification,
+def telegram_direct_login(
+        telegram_data: schemas.PhoneLogin,
         db: Session = Depends(get_db)
 ):
-    """Direct login with phone and telegram_id"""
-    user = AuthService.verify_phone_telegram(
-        db, telegram_data.phone, telegram_data.telegram_id
-    )
+    """Direct login with phone and telegram_id (for Telegram bot integration)"""
+    phone = format_phone(telegram_data.phone)
 
+    if not validate_phone(phone):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid phone number format"
+        )
+
+    if not telegram_data.telegram_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Telegram ID is required"
+        )
+
+    user = AuthService.verify_phone_telegram(db, phone, telegram_data.telegram_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid phone or telegram ID"
+            detail="Invalid phone number or Telegram ID"
         )
 
     # Get student's learning center
@@ -170,11 +202,63 @@ def telegram_login(
     center_id = profile.center_id if profile else None
 
     access_token = create_access_token(
-        data={"user_id": user.id, "center_id": center_id}
+        data={
+            "user_id": user.id,
+            "center_id": center_id,
+            "role": user.role.value
+        }
     )
 
     return schemas.Token(
         access_token=access_token,
-        refresh_token=access_token,
-        token_type="bearer"
+        token_type="bearer",
+        expires_in=2592000
     )
+
+
+@router.post("/refresh")
+def refresh_token(current_user: dict = Depends(get_current_user)):
+    """Refresh access token (simple implementation)"""
+    access_token = create_access_token(
+        data={
+            "user_id": current_user["user"].id,
+            "center_id": current_user["center_id"],
+            "role": current_user["role"]
+        }
+    )
+
+    return schemas.Token(
+        access_token=access_token,
+        token_type="bearer",
+        expires_in=2592000
+    )
+
+
+@router.post("/logout")
+def logout():
+    """Logout endpoint (client-side token removal)"""
+    return APIResponse.success({"message": "Logged out successfully"})
+
+
+@router.get("/me")
+def get_current_user_info(current_user: dict = Depends(get_current_user)):
+    """Get current user information"""
+    return APIResponse.success({
+        "user": {
+            "id": current_user["user"].id,
+            "email": current_user["user"].email,
+            "phone": current_user["user"].phone,
+            "role": current_user["role"],
+            "avatar": current_user["user"].avatar
+        },
+        "profile": {
+            "id": current_user["profile"].id,
+            "full_name": current_user["profile"].full_name,
+            "center_id": current_user["center_id"]
+        } if current_user["profile"] else None,
+        "center": {
+            "id": current_user["center"].id,
+            "title": current_user["center"].title,
+            "days_remaining": current_user["center"].days_remaining
+        } if current_user["center"] else None
+    })

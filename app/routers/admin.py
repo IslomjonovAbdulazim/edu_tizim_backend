@@ -1,23 +1,31 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
-from .. import schemas
+from sqlalchemy import desc, func
 from ..database import get_db
 from ..models import *
 from ..services import ContentService, LeaderboardService
-from ..utils import check_center_active, APIResponse, paginate, hash_password, format_phone
+from ..utils import APIResponse, get_current_user_data, check_center_active, hash_password, paginate, format_phone
+from .. import schemas
 
 router = APIRouter()
 
 
-# Dashboard
-@router.get("/dashboard")
-def admin_dashboard(db: Session = Depends(get_db)):
-    """Admin dashboard with key metrics"""
-    # TODO: Get center_id from authentication
-    center_id = 1  # Hardcoded for MVP
+def get_admin_user(current_user: dict = Depends(get_current_user_data)):
+    """Require admin role"""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    if not current_user["center_id"]:
+        raise HTTPException(status_code=403, detail="No center access")
+    return current_user
 
-    # Check center is active
+
+@router.get("/dashboard")
+def admin_dashboard(
+        current_user: dict = Depends(get_admin_user),
+        db: Session = Depends(get_db)
+):
+    """Admin dashboard with key metrics"""
+    center_id = current_user["center_id"]
     check_center_active(center_id, db)
 
     # Get stats
@@ -43,7 +51,7 @@ def admin_dashboard(db: Session = Depends(get_db)):
         Course.is_active == True
     ).count()
 
-    # Recent activity
+    # Recent students
     recent_students = db.query(LearningCenterProfile).filter(
         LearningCenterProfile.center_id == center_id,
         LearningCenterProfile.role_in_center == UserRole.STUDENT
@@ -56,31 +64,39 @@ def admin_dashboard(db: Session = Depends(get_db)):
             "total_groups": total_groups,
             "total_courses": total_courses
         },
-        "recent_students": recent_students
+        "recent_students": [{
+            "id": s.id,
+            "full_name": s.full_name,
+            "created_at": s.created_at
+        } for s in recent_students],
+        "center": {
+            "title": current_user["center"].title,
+            "days_remaining": current_user["center"].days_remaining,
+            "student_limit": current_user["center"].student_limit
+        }
     })
 
 
 # User Management
 @router.post("/users/students")
 def create_student(
-        student_data: dict,
+        student_data: schemas.StudentCreate,
+        current_user: dict = Depends(get_admin_user),
         db: Session = Depends(get_db)
 ):
     """Create new student account"""
-    center_id = 1  # Get from auth
+    center_id = current_user["center_id"]
     check_center_active(center_id, db)
 
-    # Format phone
-    phone = format_phone(student_data["phone"])
+    phone = format_phone(student_data.phone)
 
     # Check if user exists
     existing_user = db.query(User).filter(User.phone == phone).first()
 
     if not existing_user:
-        # Create new user
         user = User(
             phone=phone,
-            telegram_id=student_data.get("telegram_id"),
+            telegram_id=student_data.telegram_id,
             role=UserRole.STUDENT,
             is_active=True
         )
@@ -90,7 +106,7 @@ def create_student(
     else:
         user = existing_user
 
-    # Create profile for this center
+    # Check if profile already exists in this center
     existing_profile = db.query(LearningCenterProfile).filter(
         LearningCenterProfile.user_id == user.id,
         LearningCenterProfile.center_id == center_id
@@ -102,7 +118,7 @@ def create_student(
     profile = LearningCenterProfile(
         user_id=user.id,
         center_id=center_id,
-        full_name=student_data["full_name"],
+        full_name=student_data.full_name,
         role_in_center=UserRole.STUDENT,
         is_active=True
     )
@@ -110,26 +126,29 @@ def create_student(
     db.commit()
     db.refresh(profile)
 
-    return APIResponse.success({"profile_id": profile.id, "message": "Student created successfully"})
+    return APIResponse.success({
+        "profile_id": profile.id,
+        "message": "Student created successfully"
+    })
 
 
 @router.post("/users/teachers")
 def create_teacher(
-        teacher_data: dict,
+        teacher_data: schemas.TeacherCreate,
+        current_user: dict = Depends(get_admin_user),
         db: Session = Depends(get_db)
 ):
     """Create new teacher account"""
-    center_id = 1  # Get from auth
+    center_id = current_user["center_id"]
     check_center_active(center_id, db)
 
     # Check if user exists
-    existing_user = db.query(User).filter(User.email == teacher_data["email"]).first()
+    existing_user = db.query(User).filter(User.email == teacher_data.email).first()
 
     if not existing_user:
-        # Create new user
         user = User(
-            email=teacher_data["email"],
-            password_hash=hash_password(teacher_data["password"]),
+            email=teacher_data.email,
+            password_hash=hash_password(teacher_data.password),
             role=UserRole.TEACHER,
             is_active=True
         )
@@ -139,11 +158,19 @@ def create_teacher(
     else:
         user = existing_user
 
-    # Create profile for this center
+    # Check if profile already exists
+    existing_profile = db.query(LearningCenterProfile).filter(
+        LearningCenterProfile.user_id == user.id,
+        LearningCenterProfile.center_id == center_id
+    ).first()
+
+    if existing_profile:
+        raise HTTPException(status_code=400, detail="Teacher already exists in this center")
+
     profile = LearningCenterProfile(
         user_id=user.id,
         center_id=center_id,
-        full_name=teacher_data["full_name"],
+        full_name=teacher_data.full_name,
         role_in_center=UserRole.TEACHER,
         is_active=True
     )
@@ -151,7 +178,10 @@ def create_teacher(
     db.commit()
     db.refresh(profile)
 
-    return APIResponse.success({"profile_id": profile.id, "message": "Teacher created successfully"})
+    return APIResponse.success({
+        "profile_id": profile.id,
+        "message": "Teacher created successfully"
+    })
 
 
 @router.get("/users/students")
@@ -159,10 +189,11 @@ def get_students(
         page: int = 1,
         size: int = 20,
         search: str = None,
+        current_user: dict = Depends(get_admin_user),
         db: Session = Depends(get_db)
 ):
     """Get all students in center"""
-    center_id = 1  # Get from auth
+    center_id = current_user["center_id"]
 
     query = db.query(LearningCenterProfile).filter(
         LearningCenterProfile.center_id == center_id,
@@ -174,13 +205,16 @@ def get_students(
         query = query.filter(LearningCenterProfile.full_name.ilike(f"%{search}%"))
 
     result = paginate(query, page, size)
-    return APIResponse.success(result)
+    return APIResponse.paginated(result["items"], result["total"], result["page"], result["size"])
 
 
 @router.get("/users/teachers")
-def get_teachers(db: Session = Depends(get_db)):
+def get_teachers(
+        current_user: dict = Depends(get_admin_user),
+        db: Session = Depends(get_db)
+):
     """Get all teachers in center"""
-    center_id = 1  # Get from auth
+    center_id = current_user["center_id"]
 
     teachers = db.query(LearningCenterProfile).filter(
         LearningCenterProfile.center_id == center_id,
@@ -188,17 +222,22 @@ def get_teachers(db: Session = Depends(get_db)):
         LearningCenterProfile.is_active == True
     ).all()
 
-    return APIResponse.success(teachers)
+    return APIResponse.success([{
+        "id": t.id,
+        "full_name": t.full_name,
+        "created_at": t.created_at
+    } for t in teachers])
 
 
 # Group Management
 @router.post("/groups")
 def create_group(
         group_data: schemas.GroupCreate,
+        current_user: dict = Depends(get_admin_user),
         db: Session = Depends(get_db)
 ):
     """Create new group"""
-    center_id = 1  # Get from auth
+    center_id = current_user["center_id"]
     check_center_active(center_id, db)
 
     group = Group(
@@ -216,32 +255,55 @@ def create_group(
 
 
 @router.get("/groups")
-def get_groups(db: Session = Depends(get_db)):
+def get_groups(
+        current_user: dict = Depends(get_admin_user),
+        db: Session = Depends(get_db)
+):
     """Get all groups in center"""
-    center_id = 1  # Get from auth
+    center_id = current_user["center_id"]
 
     groups = db.query(Group).filter(
         Group.center_id == center_id,
         Group.is_active == True
     ).all()
 
-    return APIResponse.success(groups)
+    return APIResponse.success([{
+        "id": g.id,
+        "name": g.name,
+        "teacher_id": g.teacher_id,
+        "course_id": g.course_id,
+        "created_at": g.created_at
+    } for g in groups])
 
 
 @router.post("/groups/{group_id}/members")
 def add_group_members(
         group_id: int,
         member_data: schemas.GroupMemberAdd,
+        current_user: dict = Depends(get_admin_user),
         db: Session = Depends(get_db)
 ):
     """Add students to group"""
-    # Check group exists and belongs to center
-    group = db.query(Group).filter(Group.id == group_id).first()
+    # Verify group belongs to center
+    group = db.query(Group).filter(
+        Group.id == group_id,
+        Group.center_id == current_user["center_id"]
+    ).first()
+
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
 
     added = 0
     for profile_id in member_data.profile_ids:
+        # Verify profile belongs to center
+        profile = db.query(LearningCenterProfile).filter(
+            LearningCenterProfile.id == profile_id,
+            LearningCenterProfile.center_id == current_user["center_id"]
+        ).first()
+
+        if not profile:
+            continue
+
         # Check if already member
         existing = db.query(GroupMember).filter(
             GroupMember.group_id == group_id,
@@ -260,27 +322,15 @@ def add_group_members(
     return APIResponse.success({"message": f"Added {added} members to group"})
 
 
-@router.get("/groups/{group_id}/members")
-def get_group_members(group_id: int, db: Session = Depends(get_db)):
-    """Get group members"""
-    members = db.query(LearningCenterProfile).join(
-        GroupMember, GroupMember.profile_id == LearningCenterProfile.id
-    ).filter(
-        GroupMember.group_id == group_id,
-        LearningCenterProfile.is_active == True
-    ).all()
-
-    return APIResponse.success(members)
-
-
 # Course Management
 @router.post("/courses")
 def create_course(
         course_data: schemas.CourseCreate,
+        current_user: dict = Depends(get_admin_user),
         db: Session = Depends(get_db)
 ):
     """Create new course"""
-    center_id = 1  # Get from auth
+    center_id = current_user["center_id"]
     check_center_active(center_id, db)
 
     course = Course(
@@ -294,33 +344,25 @@ def create_course(
     db.refresh(course)
 
     # Clear cache
-    ContentService.invalidate_content_cache(center_id)
+    ContentService.invalidate_center_cache(center_id)
 
     return APIResponse.success({"course_id": course.id, "message": "Course created successfully"})
-
-
-@router.get("/courses")
-def get_courses(db: Session = Depends(get_db)):
-    """Get all courses in center"""
-    center_id = 1  # Get from auth
-
-    courses = db.query(Course).filter(
-        Course.center_id == center_id,
-        Course.is_active == True
-    ).all()
-
-    return APIResponse.success(courses)
 
 
 @router.post("/courses/{course_id}/modules")
 def create_module(
         course_id: int,
         module_data: schemas.ModuleCreate,
+        current_user: dict = Depends(get_admin_user),
         db: Session = Depends(get_db)
 ):
     """Create new module in course"""
-    # Check course exists and belongs to center
-    course = db.query(Course).filter(Course.id == course_id).first()
+    # Verify course belongs to center
+    course = db.query(Course).filter(
+        Course.id == course_id,
+        Course.center_id == current_user["center_id"]
+    ).first()
+
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
@@ -336,7 +378,7 @@ def create_module(
     db.refresh(module)
 
     # Clear cache
-    ContentService.invalidate_content_cache(course.center_id)
+    ContentService.invalidate_center_cache(current_user["center_id"])
 
     return APIResponse.success({"module_id": module.id, "message": "Module created successfully"})
 
@@ -345,10 +387,16 @@ def create_module(
 def create_lesson(
         module_id: int,
         lesson_data: schemas.LessonCreate,
+        current_user: dict = Depends(get_admin_user),
         db: Session = Depends(get_db)
 ):
     """Create new lesson in module"""
-    module = db.query(Module).filter(Module.id == module_id).first()
+    # Verify module belongs to center
+    module = db.query(Module).join(Course).filter(
+        Module.id == module_id,
+        Course.center_id == current_user["center_id"]
+    ).first()
+
     if not module:
         raise HTTPException(status_code=404, detail="Module not found")
 
@@ -364,8 +412,7 @@ def create_lesson(
     db.refresh(lesson)
 
     # Clear cache
-    course = db.query(Course).filter(Course.id == module.course_id).first()
-    ContentService.invalidate_content_cache(course.center_id)
+    ContentService.invalidate_center_cache(current_user["center_id"])
 
     return APIResponse.success({"lesson_id": lesson.id, "message": "Lesson created successfully"})
 
@@ -374,10 +421,16 @@ def create_lesson(
 def create_word(
         lesson_id: int,
         word_data: schemas.WordCreate,
+        current_user: dict = Depends(get_admin_user),
         db: Session = Depends(get_db)
 ):
     """Add word to lesson"""
-    lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
+    # Verify lesson belongs to center
+    lesson = db.query(Lesson).join(Module).join(Course).filter(
+        Lesson.id == lesson_id,
+        Course.center_id == current_user["center_id"]
+    ).first()
+
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
 
@@ -397,9 +450,7 @@ def create_word(
     db.refresh(word)
 
     # Clear cache
-    module = db.query(Module).filter(Module.id == lesson.module_id).first()
-    course = db.query(Course).filter(Course.id == module.course_id).first()
-    ContentService.invalidate_content_cache(course.center_id)
+    ContentService.invalidate_center_cache(current_user["center_id"])
 
     return APIResponse.success({"word_id": word.id, "message": "Word added successfully"})
 
@@ -408,10 +459,16 @@ def create_word(
 def create_bulk_words(
         lesson_id: int,
         bulk_data: schemas.BulkWordCreate,
+        current_user: dict = Depends(get_admin_user),
         db: Session = Depends(get_db)
 ):
     """Add multiple words to lesson"""
-    lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
+    # Verify lesson belongs to center
+    lesson = db.query(Lesson).join(Module).join(Course).filter(
+        Lesson.id == lesson_id,
+        Course.center_id == current_user["center_id"]
+    ).first()
+
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
 
@@ -434,20 +491,24 @@ def create_bulk_words(
     db.commit()
 
     # Clear cache
-    module = db.query(Module).filter(Module.id == lesson.module_id).first()
-    course = db.query(Course).filter(Course.id == module.course_id).first()
-    ContentService.invalidate_content_cache(course.center_id)
+    ContentService.invalidate_center_cache(current_user["center_id"])
 
     return APIResponse.success({"message": f"Added {len(words)} words successfully"})
 
 
 # Analytics
 @router.get("/analytics/overview")
-def get_analytics_overview(db: Session = Depends(get_db)):
+def get_analytics_overview(
+        current_user: dict = Depends(get_admin_user),
+        db: Session = Depends(get_db)
+):
     """Get learning center analytics"""
-    center_id = 1  # Get from auth
+    center_id = current_user["center_id"]
 
-    # Student progress overview
+    # Get top students
+    top_students = LeaderboardService.get_center_leaderboard(db, center_id, 10)
+
+    # Total lessons and completion
     total_lessons = db.query(Lesson).join(Module).join(Course).filter(
         Course.center_id == center_id,
         Course.is_active == True,
@@ -460,45 +521,9 @@ def get_analytics_overview(db: Session = Depends(get_db)):
         Progress.completed == True
     ).count()
 
-    # Top students
-    top_students = LeaderboardService.get_center_leaderboard(db, center_id)[:10]
-
     return APIResponse.success({
         "total_lessons": total_lessons,
         "completed_lessons": completed_lessons,
-        "completion_rate": (completed_lessons / max(total_lessons, 1)) * 100,
+        "completion_rate": round((completed_lessons / max(total_lessons, 1)) * 100, 2),
         "top_students": top_students
-    })
-
-
-@router.get("/analytics/student/{profile_id}")
-def get_student_analytics(profile_id: int, db: Session = Depends(get_db)):
-    """Get individual student analytics"""
-    profile = db.query(LearningCenterProfile).filter(
-        LearningCenterProfile.id == profile_id
-    ).first()
-    if not profile:
-        raise HTTPException(status_code=404, detail="Student not found")
-
-    # Progress summary
-    total_progress = db.query(Progress).filter(
-        Progress.profile_id == profile_id
-    ).all()
-
-    completed_lessons = len([p for p in total_progress if p.completed])
-    avg_percentage = sum(p.percentage for p in total_progress) / max(len(total_progress), 1)
-
-    # Total coins
-    total_coins = db.query(func.sum(Coin.amount)).filter(
-        Coin.profile_id == profile_id
-    ).scalar() or 0
-
-    return APIResponse.success({
-        "profile": profile,
-        "stats": {
-            "completed_lessons": completed_lessons,
-            "total_lessons": len(total_progress),
-            "average_percentage": avg_percentage,
-            "total_coins": total_coins
-        }
     })

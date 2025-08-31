@@ -1,25 +1,33 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from datetime import datetime, timedelta
 from ..database import get_db
 from ..models import *
 from ..services import LeaderboardService
-from ..utils import APIResponse, check_center_active
+from ..utils import APIResponse, check_center_active, get_current_user_data
 
 router = APIRouter()
 
 
+def get_teacher_user(current_user: dict = Depends(get_current_user_data)):
+    """Require teacher role"""
+    if current_user["role"] != "teacher":
+        raise HTTPException(status_code=403, detail="Teacher access required")
+    if not current_user["center_id"]:
+        raise HTTPException(status_code=403, detail="No center access")
+    return current_user
+
+
 @router.get("/dashboard")
-def teacher_dashboard(db: Session = Depends(get_db)):
+def teacher_dashboard(
+        current_user: dict = Depends(get_teacher_user),
+        db: Session = Depends(get_db)
+):
     """Teacher dashboard with assigned groups overview"""
-    profile_id = 1  # Get from auth
+    profile_id = current_user["profile"].id
+    center_id = current_user["center_id"]
 
-    profile = db.query(LearningCenterProfile).filter(
-        LearningCenterProfile.id == profile_id
-    ).first()
-    if not profile:
-        raise HTTPException(status_code=404, detail="Profile not found")
-
-    check_center_active(profile.center_id, db)
+    check_center_active(center_id, db)
 
     # Get assigned groups
     assigned_groups = db.query(Group).filter(
@@ -33,7 +41,7 @@ def teacher_dashboard(db: Session = Depends(get_db)):
         Group.is_active == True
     ).count()
 
-    # Get recent progress
+    # Get recent progress from my students
     recent_progress = db.query(Progress).join(LearningCenterProfile).join(
         GroupMember
     ).join(Group).filter(
@@ -42,20 +50,36 @@ def teacher_dashboard(db: Session = Depends(get_db)):
     ).order_by(Progress.last_practiced.desc()).limit(10).all()
 
     return APIResponse.success({
-        "profile": profile,
+        "teacher": {
+            "id": current_user["profile"].id,
+            "full_name": current_user["profile"].full_name
+        },
         "stats": {
             "assigned_groups": len(assigned_groups),
             "total_students": total_students
         },
-        "groups": assigned_groups,
-        "recent_activity": recent_progress
+        "groups": [{
+            "id": g.id,
+            "name": g.name,
+            "course_id": g.course_id,
+            "created_at": g.created_at
+        } for g in assigned_groups],
+        "recent_activity": [{
+            "lesson_id": p.lesson_id,
+            "percentage": p.percentage,
+            "completed": p.completed,
+            "last_practiced": p.last_practiced
+        } for p in recent_progress]
     })
 
 
 @router.get("/groups")
-def get_my_groups(db: Session = Depends(get_db)):
+def get_my_groups(
+        current_user: dict = Depends(get_teacher_user),
+        db: Session = Depends(get_db)
+):
     """Get groups assigned to teacher"""
-    profile_id = 1  # Get from auth
+    profile_id = current_user["profile"].id
 
     groups = db.query(Group).filter(
         Group.teacher_id == profile_id,
@@ -82,9 +106,13 @@ def get_my_groups(db: Session = Depends(get_db)):
 
 
 @router.get("/groups/{group_id}/students")
-def get_group_students(group_id: int, db: Session = Depends(get_db)):
+def get_group_students(
+        group_id: int,
+        current_user: dict = Depends(get_teacher_user),
+        db: Session = Depends(get_db)
+):
     """Get students in a specific group"""
-    profile_id = 1  # Get from auth
+    profile_id = current_user["profile"].id
 
     # Check if teacher is assigned to this group
     group = db.query(Group).filter(
@@ -117,7 +145,11 @@ def get_group_students(group_id: int, db: Session = Depends(get_db)):
         ).scalar() or 0
 
         student_data = {
-            "profile": student,
+            "profile": {
+                "id": student.id,
+                "full_name": student.full_name,
+                "created_at": student.created_at
+            },
             "progress": {
                 "completed_lessons": completed_lessons,
                 "total_lessons": len(total_progress),
@@ -127,13 +159,24 @@ def get_group_students(group_id: int, db: Session = Depends(get_db)):
         }
         students_with_progress.append(student_data)
 
-    return APIResponse.success(students_with_progress)
+    return APIResponse.success({
+        "group": {
+            "id": group.id,
+            "name": group.name,
+            "course_id": group.course_id
+        },
+        "students": students_with_progress
+    })
 
 
 @router.get("/students/{student_id}/progress")
-def get_student_progress(student_id: int, db: Session = Depends(get_db)):
+def get_student_progress(
+        student_id: int,
+        current_user: dict = Depends(get_teacher_user),
+        db: Session = Depends(get_db)
+):
     """Get detailed progress for a specific student"""
-    profile_id = 1  # Get from auth
+    profile_id = current_user["profile"].id
 
     # Check if teacher has access to this student
     has_access = db.query(GroupMember).join(Group).filter(
@@ -168,17 +211,39 @@ def get_student_progress(student_id: int, db: Session = Depends(get_db)):
     ).order_by(Coin.earned_at.desc()).limit(10).all()
 
     return APIResponse.success({
-        "student": student,
-        "progress": progress_records,
-        "weak_words": weak_words,
-        "recent_activity": recent_coins
+        "student": {
+            "id": student.id,
+            "full_name": student.full_name,
+            "created_at": student.created_at
+        },
+        "progress": [{
+            "lesson_id": p.lesson_id,
+            "percentage": p.percentage,
+            "completed": p.completed,
+            "last_practiced": p.last_practiced
+        } for p in progress_records],
+        "weak_words": [{
+            "word_id": w.word_id,
+            "last_seven_attempts": w.last_seven_attempts,
+            "total_correct": w.total_correct,
+            "total_attempts": w.total_attempts
+        } for w in weak_words],
+        "recent_activity": [{
+            "amount": c.amount,
+            "source": c.source,
+            "earned_at": c.earned_at
+        } for c in recent_coins]
     })
 
 
 @router.get("/groups/{group_id}/leaderboard")
-def get_group_leaderboard(group_id: int, db: Session = Depends(get_db)):
+def get_group_leaderboard(
+        group_id: int,
+        current_user: dict = Depends(get_teacher_user),
+        db: Session = Depends(get_db)
+):
     """Get leaderboard for specific group"""
-    profile_id = 1  # Get from auth
+    profile_id = current_user["profile"].id
 
     # Check if teacher is assigned to this group
     group = db.query(Group).filter(
@@ -191,13 +256,22 @@ def get_group_leaderboard(group_id: int, db: Session = Depends(get_db)):
 
     leaderboard = LeaderboardService.get_group_leaderboard(db, group_id)
 
-    return APIResponse.success(leaderboard)
+    return APIResponse.success({
+        "group": {
+            "id": group.id,
+            "name": group.name
+        },
+        "leaderboard": leaderboard
+    })
 
 
 @router.get("/analytics/overview")
-def get_teacher_analytics(db: Session = Depends(get_db)):
+def get_teacher_analytics(
+        current_user: dict = Depends(get_teacher_user),
+        db: Session = Depends(get_db)
+):
     """Get analytics overview for teacher's groups"""
-    profile_id = 1  # Get from auth
+    profile_id = current_user["profile"].id
 
     # Get all assigned groups
     groups = db.query(Group).filter(
@@ -210,23 +284,23 @@ def get_teacher_analytics(db: Session = Depends(get_db)):
     # Total students across all groups
     total_students = db.query(GroupMember).filter(
         GroupMember.group_id.in_(group_ids)
-    ).count()
+    ).count() if group_ids else 0
 
     # Active students (those who practiced in last 7 days)
-    from datetime import datetime, timedelta
     week_ago = datetime.now() - timedelta(days=7)
-
     active_students = db.query(Progress.profile_id).join(GroupMember).filter(
         GroupMember.group_id.in_(group_ids),
         Progress.last_practiced >= week_ago
-    ).distinct().count()
+    ).distinct().count() if group_ids else 0
 
     # Average completion rate
-    all_progress = db.query(Progress).join(LearningCenterProfile).join(
-        GroupMember
-    ).filter(
-        GroupMember.group_id.in_(group_ids)
-    ).all()
+    all_progress = []
+    if group_ids:
+        all_progress = db.query(Progress).join(LearningCenterProfile).join(
+            GroupMember
+        ).filter(
+            GroupMember.group_id.in_(group_ids)
+        ).all()
 
     if all_progress:
         avg_completion = sum(p.percentage for p in all_progress) / len(all_progress)
@@ -246,9 +320,12 @@ def get_teacher_analytics(db: Session = Depends(get_db)):
 
 
 @router.get("/students/struggling")
-def get_struggling_students(db: Session = Depends(get_db)):
+def get_struggling_students(
+        current_user: dict = Depends(get_teacher_user),
+        db: Session = Depends(get_db)
+):
     """Get students who need attention (low progress/activity)"""
-    profile_id = 1  # Get from auth
+    profile_id = current_user["profile"].id
 
     # Get students from teacher's groups
     students = db.query(LearningCenterProfile).join(GroupMember).join(Group).filter(
@@ -267,7 +344,10 @@ def get_struggling_students(db: Session = Depends(get_db)):
 
         if not progress_records:
             struggling_students.append({
-                "student": student,
+                "student": {
+                    "id": student.id,
+                    "full_name": student.full_name
+                },
                 "reason": "No progress recorded",
                 "avg_percentage": 0
             })
@@ -275,23 +355,27 @@ def get_struggling_students(db: Session = Depends(get_db)):
 
         avg_percentage = sum(p.percentage for p in progress_records) / len(progress_records)
 
-        # Students with less than 50% average or no activity in last 3 days
+        # Students with less than 50% average
         if avg_percentage < 50:
             struggling_students.append({
-                "student": student,
+                "student": {
+                    "id": student.id,
+                    "full_name": student.full_name
+                },
                 "reason": "Low completion rate",
                 "avg_percentage": round(avg_percentage, 2)
             })
 
-        # Check for inactivity
-        from datetime import datetime, timedelta
+        # Check for inactivity (no activity in last 3 days)
         three_days_ago = datetime.now() - timedelta(days=3)
-
         recent_activity = any(p.last_practiced >= three_days_ago for p in progress_records)
 
         if not recent_activity:
             struggling_students.append({
-                "student": student,
+                "student": {
+                    "id": student.id,
+                    "full_name": student.full_name
+                },
                 "reason": "No recent activity",
                 "avg_percentage": round(avg_percentage, 2)
             })
@@ -299,29 +383,17 @@ def get_struggling_students(db: Session = Depends(get_db)):
     return APIResponse.success(struggling_students)
 
 
-@router.get("/content/courses")
-def get_assigned_courses(db: Session = Depends(get_db)):
-    """Get courses assigned to teacher's groups"""
-    profile_id = 1  # Get from auth
-
-    courses = db.query(Course).join(Group).filter(
-        Group.teacher_id == profile_id,
-        Group.is_active == True,
-        Course.is_active == True
-    ).distinct().all()
-
-    return APIResponse.success(courses)
-
-
 @router.get("/reports/weekly")
-def get_weekly_report(db: Session = Depends(get_db)):
+def get_weekly_report(
+        current_user: dict = Depends(get_teacher_user),
+        db: Session = Depends(get_db)
+):
     """Get weekly activity report for teacher's groups"""
-    profile_id = 1  # Get from auth
+    profile_id = current_user["profile"].id
 
-    from datetime import datetime, timedelta
     week_ago = datetime.now() - timedelta(days=7)
 
-    # Get progress in last week
+    # Get progress in last week from teacher's students
     weekly_progress = db.query(Progress).join(LearningCenterProfile).join(
         GroupMember
     ).join(Group).filter(
@@ -352,6 +424,6 @@ def get_weekly_report(db: Session = Depends(get_db)):
     return APIResponse.success({
         "week_summary": {
             "total_progress_records": len(weekly_progress),
-            "daily_breakdown": list(daily_activity.values())
+            "daily_breakdown": sorted(daily_activity.values(), key=lambda x: x["date"])
         }
     })
