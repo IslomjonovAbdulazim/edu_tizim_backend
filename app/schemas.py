@@ -220,6 +220,14 @@ class Payment(BaseModel):
     class Config:
         from_attributes = True
 
+# Password Management Schemas
+class PasswordChangeRequest(BaseModel):
+    center_id: int
+    new_password: str
+
+class AdminPasswordChangeRequest(BaseModel):
+    new_password: str
+
 # Response Schemas
 class ApiResponse(BaseModel):
     success: bool

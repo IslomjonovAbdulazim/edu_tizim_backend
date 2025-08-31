@@ -14,9 +14,12 @@ router = APIRouter()
 @router.get("/courses")
 def get_courses(
         center_id: int = Query(..., description="Learning center ID"),
+        current_user: dict = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get available courses for a center (public access)"""
+    """Get available courses for a center"""
+    if current_user["role"] not in ["admin", "teacher", "student"]:
+        raise HTTPException(status_code=403, detail="Access denied")
     courses = db.query(Course).filter(
         Course.center_id == center_id,
         Course.is_active == True
@@ -34,8 +37,14 @@ def get_courses(
 
 
 @router.get("/courses/{course_id}")
-def get_course_structure(course_id: int, db: Session = Depends(get_db)):
+def get_course_structure(
+        course_id: int, 
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
     """Get complete course structure with modules and lessons"""
+    if current_user["role"] not in ["admin", "teacher", "student"]:
+        raise HTTPException(status_code=403, detail="Access denied")
     course = db.query(Course).filter(
         Course.id == course_id,
         Course.is_active == True
@@ -56,8 +65,14 @@ def get_course_structure(course_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/lessons/{lesson_id}/words")
-def get_lesson_words(lesson_id: int, db: Session = Depends(get_db)):
+def get_lesson_words(
+        lesson_id: int, 
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
     """Get all words in a lesson"""
+    if current_user["role"] not in ["admin", "teacher", "student"]:
+        raise HTTPException(status_code=403, detail="Access denied")
     lesson = db.query(Lesson).filter(
         Lesson.id == lesson_id,
         Lesson.is_active == True
@@ -71,8 +86,14 @@ def get_lesson_words(lesson_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/words/{word_id}")
-def get_word_details(word_id: int, db: Session = Depends(get_db)):
+def get_word_details(
+        word_id: int, 
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
     """Get detailed word information"""
+    if current_user["role"] not in ["admin", "teacher", "student"]:
+        raise HTTPException(status_code=403, detail="Access denied")
     word = db.query(Word).filter(
         Word.id == word_id,
         Word.is_active == True
@@ -98,9 +119,12 @@ def search_content(
         center_id: int = Query(..., description="Learning center ID"),
         content_type: str = Query("all", regex="^(courses|lessons|words|all)$"),
         limit: int = Query(20, le=50),
+        current_user: dict = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
     """Search through content"""
+    if current_user["role"] not in ["admin", "teacher", "student"]:
+        raise HTTPException(status_code=403, detail="Access denied")
     results = {}
 
     if content_type in ["courses", "all"]:
@@ -139,9 +163,12 @@ def search_content(
 def get_random_words(
         center_id: int = Query(..., description="Learning center ID"),
         count: int = Query(10, le=50, description="Number of random words"),
+        current_user: dict = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
     """Get random words for practice"""
+    if current_user["role"] not in ["admin", "teacher", "student"]:
+        raise HTTPException(status_code=403, detail="Access denied")
     words = db.query(Word).join(Lesson).join(Module).join(Course).filter(
         Course.center_id == center_id,
         Course.is_active == True,
@@ -163,8 +190,14 @@ def get_random_words(
 
 
 @router.get("/stats/{course_id}")
-def get_course_stats(course_id: int, db: Session = Depends(get_db)):
+def get_course_stats(
+        course_id: int, 
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
     """Get course statistics"""
+    if current_user["role"] not in ["admin", "teacher", "student"]:
+        raise HTTPException(status_code=403, detail="Access denied")
     course = db.query(Course).filter(Course.id == course_id).first()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")

@@ -4,7 +4,7 @@ from sqlalchemy import desc, func
 from ..database import get_db
 from ..models import *
 from ..services import ContentService, LeaderboardService
-from ..utils import APIResponse, get_current_user_data, check_center_active, hash_password, paginate, format_phone
+from ..utils import APIResponse, get_current_user_data, check_center_active, hash_password, paginate, format_phone, validate_uzbek_phone
 from ..dependencies import get_current_user
 from .. import schemas
 
@@ -90,6 +90,10 @@ def create_student(
     check_center_active(center_id, db)
 
     phone = format_phone(student_data.phone)
+    
+    # Validate Uzbekistan phone number
+    if not validate_uzbek_phone(phone):
+        raise HTTPException(status_code=400, detail="Invalid Uzbekistan phone number format")
 
     # Check if user exists
     existing_user = db.query(User).filter(User.phone == phone).first()
@@ -196,7 +200,7 @@ def get_students(
     """Get all students in center"""
     center_id = current_user["center_id"]
 
-    query = db.query(LearningCenterProfile).filter(
+    query = db.query(LearningCenterProfile).join(User).filter(
         LearningCenterProfile.center_id == center_id,
         LearningCenterProfile.role_in_center == UserRole.STUDENT,
         LearningCenterProfile.is_active == True
@@ -206,7 +210,25 @@ def get_students(
         query = query.filter(LearningCenterProfile.full_name.ilike(f"%{search}%"))
 
     result = paginate(query, page, size)
-    return APIResponse.paginated(result["items"], result["total"], result["page"], result["size"])
+    
+    # Add phone from User table to each student
+    students_with_phone = []
+    for student in result["items"]:
+        user = db.query(User).filter(User.id == student.user_id).first()
+        student_dict = {
+            "id": student.id,
+            "user_id": student.user_id,
+            "center_id": student.center_id,
+            "full_name": student.full_name,
+            "phone": user.phone if user else None,
+            "role_in_center": student.role_in_center,
+            "is_active": student.is_active,
+            "created_at": student.created_at,
+            "updated_at": student.updated_at
+        }
+        students_with_phone.append(student_dict)
+    
+    return APIResponse.paginated(students_with_phone, result["total"], result["page"], result["size"])
 
 
 @router.get("/users/teachers")
@@ -497,13 +519,37 @@ def create_bulk_words(
     return APIResponse.success({"message": f"Added {len(words)} words successfully"})
 
 
-# Analytics
-@router.get("/analytics/overview")
-def get_analytics_overview(
+# Password Management
+@router.patch("/password")
+def change_admin_password(
+        password_data: schemas.AdminPasswordChangeRequest,
         current_user: dict = Depends(get_admin_user),
         db: Session = Depends(get_db)
 ):
+    """Change admin user password"""
+    # Get current admin user
+    admin_user = db.query(User).filter(User.id == current_user["user_id"]).first()
+    if not admin_user:
+        raise HTTPException(status_code=404, detail="Admin user not found")
+
+    # Update password
+    admin_user.password_hash = hash_password(password_data.new_password)
+    db.commit()
+
+    return APIResponse.success({"message": "Password updated successfully"})
+
+
+# Analytics
+@router.get("/analytics/overview")
+def get_analytics_overview(
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
     """Get learning center analytics"""
+    # Allow admin, teacher, and student access
+    if current_user["role"] not in ["admin", "teacher", "student"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
     center_id = current_user["center_id"]
 
     # Get top students

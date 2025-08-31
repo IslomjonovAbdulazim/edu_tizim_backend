@@ -421,6 +421,30 @@ def delete_center(
     return APIResponse.success({"message": "Center deleted successfully"})
 
 
+@router.patch("/centers/{center_id}/password")
+def change_center_password(
+        center_id: int,
+        password_data: schemas.PasswordChangeRequest,
+        current_user: dict = Depends(get_super_admin_user),
+        db: Session = Depends(get_db)
+):
+    """Change learning center admin password"""
+    center = db.query(LearningCenter).filter(LearningCenter.id == center_id).first()
+    if not center:
+        raise HTTPException(status_code=404, detail="Center not found")
+
+    # Get the center's admin user
+    admin_user = db.query(User).filter(User.id == center.owner_id).first()
+    if not admin_user:
+        raise HTTPException(status_code=404, detail="Center admin not found")
+
+    # Update password
+    admin_user.password_hash = hash_password(password_data.new_password)
+    db.commit()
+
+    return APIResponse.success({"message": "Center admin password updated successfully"})
+
+
 # System Analytics
 @router.get("/analytics/revenue")
 def get_revenue_analytics(

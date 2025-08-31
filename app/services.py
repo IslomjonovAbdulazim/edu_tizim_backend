@@ -242,7 +242,8 @@ class LeaderboardService:
             User, User.id == LearningCenterProfile.user_id
         ).filter(
             LearningCenterProfile.center_id == center_id,
-            LearningCenterProfile.is_active == True
+            LearningCenterProfile.is_active == True,
+            LearningCenterProfile.role_in_center == UserRole.STUDENT
         ).group_by(
             LearningCenterProfile.id,
             LearningCenterProfile.full_name,

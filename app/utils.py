@@ -125,7 +125,7 @@ def require_role(required_roles: list):
 
 def check_center_active(center_id: int, db: Session):
     """Check if learning center is active and has remaining days"""
-    from models import LearningCenter
+    from .models import LearningCenter
 
     center = db.query(LearningCenter).filter(LearningCenter.id == center_id).first()
     if not center:
@@ -180,6 +180,13 @@ def format_phone(phone: str) -> str:
 def validate_phone(phone: str) -> bool:
     """Validate phone number format"""
     pattern = r'^\+\d{10,15}$'
+    return bool(re.match(pattern, phone))
+
+
+def validate_uzbek_phone(phone: str) -> bool:
+    """Validate Uzbekistan phone number format"""
+    # Uzbek numbers: +998 followed by 9 digits
+    pattern = r'^\+998\d{9}$'
     return bool(re.match(pattern, phone))
 
 
