@@ -291,7 +291,7 @@ def add_payment(
     return APIResponse.success({
         "payment_id": payment.id,
         "message": f"Payment processed successfully. Added {payment.days_added} days.",
-        "new_days_remaining": center.days_remaining + payment.days_added
+        "new_days_remaining": center.days_remaining
     })
 
 
