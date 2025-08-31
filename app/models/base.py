@@ -1,4 +1,3 @@
-from datetime import datetime
 from sqlalchemy import Column, Integer, DateTime, Boolean, func
 from sqlalchemy import MetaData
 # SQLAlchemy naming convention to stabilize Alembic diffs

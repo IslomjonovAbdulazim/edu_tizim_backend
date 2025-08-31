@@ -1,5 +1,5 @@
-from sqlalchemy import Column, String, Integer, ForeignKey, Boolean, Text, Index, CheckConstraint
-from sqlalchemy import MetaData
+from sqlalchemy import Column, String, Integer, ForeignKey, Text, Index, CheckConstraint
+
 # SQLAlchemy naming convention to stabilize Alembic diffs
 naming_convention = {
     "ix": "ix_%(column_0_label)s",

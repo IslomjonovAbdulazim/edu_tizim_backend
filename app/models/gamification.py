@@ -1,5 +1,4 @@
 from sqlalchemy import Column, String, Integer, ForeignKey, Date, UniqueConstraint, Index, CheckConstraint, Enum
-from sqlalchemy import MetaData
 # SQLAlchemy naming convention to stabilize Alembic diffs
 naming_convention = {
     "ix": "ix_%(column_0_label)s",
@@ -10,7 +9,6 @@ naming_convention = {
 }
 
 from sqlalchemy.orm import relationship
-from datetime import date
 import enum
 from .base import BaseModel
 
