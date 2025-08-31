@@ -375,6 +375,44 @@ Get center growth and usage analytics
 }
 ```
 
+## Password Management
+
+### PATCH /super-admin/centers/{center_id}/password
+Change learning center admin password
+
+**Request:**
+```json
+{
+  "center_id": 123,
+  "new_password": "newSecurePassword123"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Center admin password updated successfully"
+  }
+}
+```
+
+**Response (Error):**
+```json
+{
+  "success": false,
+  "detail": "Center not found"
+}
+```
+
+```json
+{
+  "success": false,
+  "detail": "Center admin not found"
+}
+```
+
 ## Error Responses
 
 All endpoints can return these common errors:
