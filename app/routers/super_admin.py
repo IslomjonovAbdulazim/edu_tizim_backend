@@ -5,12 +5,13 @@ from ..database import get_db
 from ..models import *
 from ..services import PaymentService
 from ..utils import hash_password, APIResponse, paginate, get_current_user_data
+from ..dependencies import get_current_user
 from .. import schemas
 
 router = APIRouter()
 
 
-def get_super_admin_user(current_user: dict = Depends(get_current_user_data)):
+def get_super_admin_user(current_user: dict = Depends(get_current_user)):
     """Require super admin role"""
     if current_user["role"] != "super_admin":
         raise HTTPException(status_code=403, detail="Super admin access required")

@@ -5,12 +5,13 @@ from ..database import get_db
 from ..models import *
 from ..services import ContentService, LeaderboardService
 from ..utils import APIResponse, get_current_user_data, check_center_active, hash_password, paginate, format_phone
+from ..dependencies import get_current_user
 from .. import schemas
 
 router = APIRouter()
 
 
-def get_admin_user(current_user: dict = Depends(get_current_user_data)):
+def get_admin_user(current_user: dict = Depends(get_current_user)):
     """Require admin role"""
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")

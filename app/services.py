@@ -1,9 +1,9 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from typing import List, Optional
-from models import *
-from database import RedisService
-import schemas
+from .models import *
+from .database import RedisService
+from . import schemas
 
 
 class AuthService:

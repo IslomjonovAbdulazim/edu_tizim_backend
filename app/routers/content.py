@@ -6,6 +6,7 @@ from ..database import get_db
 from ..models import *
 from ..services import ContentService, ProgressService
 from ..utils import APIResponse, get_current_user_data
+from ..dependencies import get_current_user
 
 router = APIRouter()
 
@@ -207,10 +208,10 @@ def get_course_stats(course_id: int, db: Session = Depends(get_db)):
 
 
 # Student Progress Endpoints (Protected)
-@router.post("/progress/lesson", dependencies=[Depends(get_current_user_data)])
+@router.post("/progress/lesson", dependencies=[Depends(get_current_user)])
 def update_lesson_progress(
         progress_data: schemas.ProgressUpdate,
-        current_user: dict = Depends(get_current_user_data),
+        current_user: dict = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
     """Update student's lesson progress"""
@@ -230,10 +231,10 @@ def update_lesson_progress(
     return APIResponse.success({"message": "Progress updated successfully"})
 
 
-@router.post("/progress/word", dependencies=[Depends(get_current_user_data)])
+@router.post("/progress/word", dependencies=[Depends(get_current_user)])
 def update_word_progress(
         word_attempt: schemas.WordAttempt,
-        current_user: dict = Depends(get_current_user_data),
+        current_user: dict = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
     """Update student's word-level progress"""
@@ -253,9 +254,9 @@ def update_word_progress(
     return APIResponse.success({"message": "Word progress updated"})
 
 
-@router.get("/my-progress", dependencies=[Depends(get_current_user_data)])
+@router.get("/my-progress", dependencies=[Depends(get_current_user)])
 def get_my_progress(
-        current_user: dict = Depends(get_current_user_data),
+        current_user: dict = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
     """Get student's learning progress"""

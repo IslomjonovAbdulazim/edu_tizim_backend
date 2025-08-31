@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from ..database import get_db, RedisService
-from ..main import get_current_user
+from ..dependencies import get_current_user
 from ..models import *
 from ..services import AuthService
 from ..utils import APIResponse, format_phone, \
-    validate_phone, generate_verification_code, create_access_token, send_telegram_message
+    validate_phone, generate_verification_code, create_access_token, send_telegram_message, verify_password
 from .. import schemas
 
 router = APIRouter()

@@ -1,17 +1,12 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
 import os
 from dotenv import load_dotenv
 
-from database import engine, get_db
-from models import Base, User, UserRole
-from utils import verify_token, hash_password, get_current_user_data
-import schemas
-
-# Import routers
-from routers import auth, admin, content, teacher, super_admin
+from .database import engine
+from .models import Base, User, UserRole
+from .routers import auth, super_admin, admin, teacher, content
+from .utils import hash_password
 
 load_dotenv()
 
@@ -34,24 +29,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Security
-security = HTTPBearer()
-
-# Auth dependency
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
-):
-    """Get current authenticated user with proper validation"""
-    token = credentials.credentials
-    payload = verify_token(token)
-    if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
-        )
-
-    return get_current_user_data(db, payload["user_id"], payload.get("center_id"))
 
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
@@ -75,7 +52,7 @@ def health_check():
 # Create super admin on startup
 @app.on_event("startup")
 async def create_super_admin():
-    from database import SessionLocal
+    from .database import SessionLocal
     db = SessionLocal()
 
     try:

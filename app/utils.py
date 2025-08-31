@@ -57,7 +57,7 @@ def verify_token(token: str) -> Optional[Dict[str, Any]]:
 
 def get_current_user_data(db: Session, user_id: int, center_id: Optional[int] = None):
     """Get current user data with proper validation"""
-    from models import User, LearningCenter, LearningCenterProfile, UserRole
+    from .models import User, LearningCenter, LearningCenterProfile, UserRole
 
     user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
     if not user:

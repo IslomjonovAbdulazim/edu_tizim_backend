@@ -5,11 +5,12 @@ from ..database import get_db
 from ..models import *
 from ..services import LeaderboardService
 from ..utils import APIResponse, check_center_active, get_current_user_data
+from ..dependencies import get_current_user
 
 router = APIRouter()
 
 
-def get_teacher_user(current_user: dict = Depends(get_current_user_data)):
+def get_teacher_user(current_user: dict = Depends(get_current_user)):
     """Require teacher role"""
     if current_user["role"] != "teacher":
         raise HTTPException(status_code=403, detail="Teacher access required")
