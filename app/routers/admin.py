@@ -348,6 +348,81 @@ def add_group_members(
     return APIResponse.success({"message": f"Added {added} members to group"})
 
 
+@router.get("/groups/{group_id}/members")
+def get_group_members(
+        group_id: int,
+        current_user: dict = Depends(get_admin_user),
+        db: Session = Depends(get_db)
+):
+    """Get all members in group"""
+    # Verify group belongs to center
+    group = db.query(Group).filter(
+        Group.id == group_id,
+        Group.center_id == current_user["center_id"]
+    ).first()
+
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    # Get all group members with profile information
+    members = db.query(GroupMember).join(LearningCenterProfile).filter(
+        GroupMember.group_id == group_id,
+        LearningCenterProfile.is_active == True
+    ).all()
+
+    return APIResponse.success([{
+        "profile_id": member.profile_id,
+        "full_name": member.profile.full_name,
+        "joined_at": member.created_at
+    } for member in members])
+
+
+@router.post("/groups/{group_id}/members/{profile_id}")
+def add_individual_student_to_group(
+        group_id: int,
+        profile_id: int,
+        current_user: dict = Depends(get_admin_user),
+        db: Session = Depends(get_db)
+):
+    """Add individual student to group"""
+    # Verify group belongs to center
+    group = db.query(Group).filter(
+        Group.id == group_id,
+        Group.center_id == current_user["center_id"]
+    ).first()
+
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    # Verify profile belongs to center
+    profile = db.query(LearningCenterProfile).filter(
+        LearningCenterProfile.id == profile_id,
+        LearningCenterProfile.center_id == current_user["center_id"],
+        LearningCenterProfile.role_in_center == UserRole.STUDENT
+    ).first()
+
+    if not profile:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    # Check if already member
+    existing = db.query(GroupMember).filter(
+        GroupMember.group_id == group_id,
+        GroupMember.profile_id == profile_id
+    ).first()
+
+    if existing:
+        raise HTTPException(status_code=400, detail="Student already in group")
+
+    member = GroupMember(
+        group_id=group_id,
+        profile_id=profile_id
+    )
+    db.add(member)
+    db.commit()
+
+    return APIResponse.success({"message": "Student added to group successfully"})
+
+
 @router.put("/groups/{group_id}")
 def update_group(
         group_id: int,
@@ -1226,7 +1301,7 @@ def update_center(
         current_user: dict = Depends(get_admin_user),
         db: Session = Depends(get_db)
 ):
-    """Update learning center title and logo"""
+    """Update learning center title only"""
     center_id = current_user["center_id"]
     
     center = db.query(LearningCenter).filter(LearningCenter.id == center_id).first()
@@ -1234,8 +1309,6 @@ def update_center(
         raise HTTPException(status_code=404, detail="Center not found")
     
     center.title = center_data.title
-    if center_data.logo:
-        center.logo = center_data.logo
     db.commit()
     
     return APIResponse.success({"message": "Center updated successfully"})
@@ -1247,16 +1320,27 @@ def upload_center_logo(
         current_user: dict = Depends(get_admin_user),
         db: Session = Depends(get_db)
 ):
-    """Upload logo for learning center"""
+    """Upload logo for learning center (PNG only, max 3MB)"""
     center_id = current_user["center_id"]
     
     center = db.query(LearningCenter).filter(LearningCenter.id == center_id).first()
     if not center:
         raise HTTPException(status_code=404, detail="Center not found")
     
-    # Validate file type
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="File must be an image")
+    # Validate file type - PNG only
+    if file.content_type != "image/png":
+        raise HTTPException(status_code=400, detail="Only PNG files are allowed")
+    
+    # Read file content to check size
+    file_content = file.file.read()
+    file_size = len(file_content)
+    
+    # Check file size - max 3MB
+    if file_size > 3 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File size must be less than 3MB")
+    
+    # Reset file pointer
+    file.file.seek(0)
     
     # Save file
     file_path = save_uploaded_file(file, "logos")
@@ -1266,50 +1350,3 @@ def upload_center_logo(
     return APIResponse.success({"message": "Center logo uploaded successfully", "logo_url": file_path})
 
 
-# Standalone File Upload Endpoints (return paths only)
-@router.post("/upload/word-image")
-def upload_word_image_standalone(
-        file: UploadFile = File(...),
-        current_user: dict = Depends(get_admin_user)
-):
-    """Upload word image and return path for later use"""
-    # Validate file type
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="File must be an image")
-    
-    # Save file and return path
-    file_path = save_uploaded_file(file, "word-images")
-    
-    return APIResponse.success({"image_url": file_path})
-
-
-@router.post("/upload/word-audio")
-def upload_word_audio_standalone(
-        file: UploadFile = File(...),
-        current_user: dict = Depends(get_admin_user)
-):
-    """Upload word audio and return path for later use"""
-    # Validate file type
-    if not file.content_type.startswith("audio/"):
-        raise HTTPException(status_code=400, detail="File must be an audio file")
-    
-    # Save file and return path
-    file_path = save_uploaded_file(file, "word-audio")
-    
-    return APIResponse.success({"audio_url": file_path})
-
-
-@router.post("/upload/logo")
-def upload_logo_standalone(
-        file: UploadFile = File(...),
-        current_user: dict = Depends(get_admin_user)
-):
-    """Upload center logo and return path for later use"""
-    # Validate file type
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="File must be an image")
-    
-    # Save file and return path
-    file_path = save_uploaded_file(file, "logos")
-    
-    return APIResponse.success({"logo_url": file_path})

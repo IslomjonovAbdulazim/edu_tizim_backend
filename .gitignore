@@ -77,15 +77,15 @@ venv.bak/
 *.log
 logs/
 
-# Storage files
-storage/media/*
-storage/documents/*
-storage/temp/*
-!storage/media/.gitkeep
-!storage/documents/.gitkeep
-!storage/temp/.gitkeep
-
-# Keep directory structure for uploaded files
+# Storage files - hide all uploaded content but keep directory structure
+storage/*
+!storage/.gitkeep
+!storage/logos/
+!storage/word-images/
+!storage/word-audio/
+storage/logos/*
+storage/word-images/*
+storage/word-audio/*
 !storage/logos/.gitkeep
 !storage/word-images/.gitkeep
 !storage/word-audio/.gitkeep
