@@ -35,9 +35,21 @@ app.add_middleware(
 
 
 # Mount static files - use persistent storage path
-storage_path = os.getenv("STORAGE_PATH", "/var/www/storage")
-os.makedirs(storage_path, exist_ok=True)
-app.mount("/storage", StaticFiles(directory=storage_path), name="storage")
+storage_path = os.getenv("STORAGE_PATH", "/tmp/persistent_storage")
+try:
+    os.makedirs(storage_path, exist_ok=True)
+    os.makedirs(f"{storage_path}/logos", exist_ok=True)
+    os.makedirs(f"{storage_path}/word-images", exist_ok=True)
+    os.makedirs(f"{storage_path}/word-audio", exist_ok=True)
+    app.mount("/storage", StaticFiles(directory=storage_path), name="storage")
+    print(f"✅ Storage mounted at: {storage_path}")
+except Exception as e:
+    print(f"❌ Storage mount failed: {e}")
+    # Fallback to tmp storage
+    fallback_path = "/tmp/storage"
+    os.makedirs(fallback_path, exist_ok=True)
+    app.mount("/storage", StaticFiles(directory=fallback_path), name="storage")
+    print(f"✅ Fallback storage mounted at: {fallback_path}")
 
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])

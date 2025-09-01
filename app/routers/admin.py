@@ -679,22 +679,26 @@ def save_uploaded_file(file: UploadFile, folder: str) -> str:
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file selected")
     
-    # Use persistent storage path from environment
-    base_storage = os.getenv("STORAGE_PATH", "/var/www/storage")
-    storage_path = Path(base_storage) / folder
-    storage_path.mkdir(parents=True, exist_ok=True)
+    try:
+        # Use persistent storage path from environment
+        base_storage = os.getenv("STORAGE_PATH", "/tmp/persistent_storage")
+        storage_path = Path(base_storage) / folder
+        storage_path.mkdir(parents=True, exist_ok=True)
+        
+        # Generate unique filename
+        file_extension = Path(file.filename).suffix.lower()
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        file_path = storage_path / unique_filename
+        
+        # Save file
+        with open(file_path, "wb") as buffer:
+            content = file.file.read()
+            buffer.write(content)
+        
+        return f"/storage/{folder}/{unique_filename}"
     
-    # Generate unique filename
-    file_extension = Path(file.filename).suffix
-    unique_filename = f"{uuid.uuid4()}{file_extension}"
-    file_path = storage_path / unique_filename
-    
-    # Save file
-    with open(file_path, "wb") as buffer:
-        content = file.file.read()
-        buffer.write(content)
-    
-    return f"/storage/{folder}/{unique_filename}"
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
 
 
 # Student Management CRUD
