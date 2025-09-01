@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import os
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -32,6 +33,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# Mount static files
+app.mount("/storage", StaticFiles(directory="storage"), name="storage")
 
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
