@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from ..database import get_db
 from ..models import *
-from ..services import PaymentService
+from ..services import PaymentService, SchedulerService
 from ..utils import hash_password, APIResponse, paginate, get_current_user_data
 from ..dependencies import get_current_user
 from .. import schemas
@@ -561,3 +561,23 @@ def get_center_analytics(
             for row in student_distribution
         ]
     })
+
+
+# System Operations
+@router.post("/system/countdown-trigger")
+def trigger_daily_countdown(
+        current_user: dict = Depends(get_super_admin_user),
+        db: Session = Depends(get_db)
+):
+    """Manually trigger daily countdown task"""
+    try:
+        updated_count = SchedulerService.decrement_center_days(db)
+        return APIResponse.success({
+            "message": "Daily countdown executed successfully",
+            "centers_updated": updated_count
+        })
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to execute countdown: {str(e)}"
+        )

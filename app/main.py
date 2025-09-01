@@ -93,12 +93,12 @@ def daily_countdown_task():
         db.close()
 
 
-# Initialize scheduler
-scheduler = BackgroundScheduler()
+# Initialize scheduler with Tashkent timezone
+scheduler = BackgroundScheduler(timezone="Asia/Tashkent")
 scheduler.add_job(
     func=daily_countdown_task,
     trigger="cron",
-    hour=0,  # Run at midnight
+    hour=0,  # Run at midnight Tashkent time
     minute=0,
     id="daily_countdown"
 )
