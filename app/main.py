@@ -124,3 +124,4 @@ scheduler.start()
 
 # Shutdown scheduler on app exit
 atexit.register(lambda: scheduler.shutdown())
+
