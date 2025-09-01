@@ -7,7 +7,6 @@ from ..services import ContentService, LeaderboardService
 from ..utils import APIResponse, get_current_user_data, check_center_active, hash_password, paginate, format_phone, validate_uzbek_phone
 from ..dependencies import get_current_user
 from .. import schemas
-import os
 import uuid
 from pathlib import Path
 
