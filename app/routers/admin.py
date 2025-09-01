@@ -242,17 +242,23 @@ def get_teachers(
     """Get all teachers in center"""
     center_id = current_user["center_id"]
 
-    teachers = db.query(LearningCenterProfile).filter(
+    teachers = db.query(LearningCenterProfile).join(User).filter(
         LearningCenterProfile.center_id == center_id,
         LearningCenterProfile.role_in_center == UserRole.TEACHER,
         LearningCenterProfile.is_active == True
     ).all()
 
-    return APIResponse.success([{
-        "id": t.id,
-        "full_name": t.full_name,
-        "created_at": t.created_at
-    } for t in teachers])
+    teachers_with_email = []
+    for teacher in teachers:
+        user = db.query(User).filter(User.id == teacher.user_id).first()
+        teachers_with_email.append({
+            "id": teacher.id,
+            "full_name": teacher.full_name,
+            "email": user.email if user else None,
+            "created_at": teacher.created_at
+        })
+
+    return APIResponse.success(teachers_with_email)
 
 
 # Group Management
