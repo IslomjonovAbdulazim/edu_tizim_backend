@@ -2,11 +2,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
+from apscheduler.schedulers.background import BackgroundScheduler
+import atexit
 
-from .database import engine
+from .database import engine, SessionLocal
 from .models import Base, User, UserRole
 from .routers import auth, super_admin, admin, teacher, content
 from .utils import hash_password
+from .services import SchedulerService
 
 load_dotenv()
 
@@ -77,3 +80,29 @@ async def create_super_admin():
         print(f"❌ Error creating super admin: {e}")
     finally:
         db.close()
+
+
+def daily_countdown_task():
+    """Background task to decrement center days"""
+    db = SessionLocal()
+    try:
+        SchedulerService.decrement_center_days(db)
+    except Exception as e:
+        print(f"❌ Error in daily countdown: {e}")
+    finally:
+        db.close()
+
+
+# Initialize scheduler
+scheduler = BackgroundScheduler()
+scheduler.add_job(
+    func=daily_countdown_task,
+    trigger="cron",
+    hour=0,  # Run at midnight
+    minute=0,
+    id="daily_countdown"
+)
+scheduler.start()
+
+# Shutdown scheduler on app exit
+atexit.register(lambda: scheduler.shutdown())

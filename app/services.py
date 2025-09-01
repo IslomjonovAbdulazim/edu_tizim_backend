@@ -332,3 +332,22 @@ class PaymentService:
         db.commit()
         db.refresh(payment)
         return payment
+
+
+class SchedulerService:
+    @staticmethod
+    def decrement_center_days(db: Session):
+        """Daily task to decrement days_remaining for all active centers"""
+        centers = db.query(LearningCenter).filter(
+            LearningCenter.days_remaining > 0,
+            LearningCenter.is_active == True
+        ).all()
+        
+        for center in centers:
+            center.days_remaining -= 1
+            if center.days_remaining <= 0:
+                center.is_active = False
+        
+        db.commit()
+        print(f"✅ Updated {len(centers)} learning centers")
+        return len(centers)
