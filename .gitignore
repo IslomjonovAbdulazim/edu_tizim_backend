@@ -77,18 +77,8 @@ venv.bak/
 *.log
 logs/
 
-# Storage files - hide all uploaded content but keep directory structure
-storage/*
-!storage/.gitkeep
-!storage/logos/
-!storage/word-images/
-!storage/word-audio/
-storage/logos/*
-storage/word-images/*
-storage/word-audio/*
-!storage/logos/.gitkeep
-!storage/word-images/.gitkeep
-!storage/word-audio/.gitkeep
+# Storage files - only ignore local storage, use external persistent storage in production
+storage/
 
 # OS generated files
 .DS_Store

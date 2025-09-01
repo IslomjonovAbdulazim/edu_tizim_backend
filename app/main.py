@@ -34,8 +34,10 @@ app.add_middleware(
 )
 
 
-# Mount static files
-app.mount("/storage", StaticFiles(directory="storage"), name="storage")
+# Mount static files - use persistent storage path
+storage_path = os.getenv("STORAGE_PATH", "/var/www/storage")
+os.makedirs(storage_path, exist_ok=True)
+app.mount("/storage", StaticFiles(directory=storage_path), name="storage")
 
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])

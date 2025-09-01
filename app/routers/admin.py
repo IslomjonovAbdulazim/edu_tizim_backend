@@ -679,8 +679,9 @@ def save_uploaded_file(file: UploadFile, folder: str) -> str:
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file selected")
     
-    # Create directory if it doesn't exist
-    storage_path = Path(f"storage/{folder}")
+    # Use persistent storage path from environment
+    base_storage = os.getenv("STORAGE_PATH", "/var/www/storage")
+    storage_path = Path(base_storage) / folder
     storage_path.mkdir(parents=True, exist_ok=True)
     
     # Generate unique filename
@@ -693,7 +694,7 @@ def save_uploaded_file(file: UploadFile, folder: str) -> str:
         content = file.file.read()
         buffer.write(content)
     
-    return f"storage/{folder}/{unique_filename}"
+    return f"/storage/{folder}/{unique_filename}"
 
 
 # Student Management CRUD
