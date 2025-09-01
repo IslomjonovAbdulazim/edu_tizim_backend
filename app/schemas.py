@@ -231,6 +231,40 @@ class AdminPasswordChangeRequest(BaseModel):
 class StudentLimitChangeRequest(BaseModel):
     new_student_limit: int
 
+# Update Schemas
+class StudentUpdate(BaseModel):
+    full_name: str
+
+class TeacherUpdate(BaseModel):
+    full_name: str
+    password: Optional[str] = None
+
+class GroupUpdate(BaseModel):
+    name: str
+    teacher_id: Optional[int] = None
+    course_id: Optional[int] = None
+
+class ModuleUpdate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    order_index: int
+
+class LessonUpdate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    order_index: int
+
+class WordUpdate(BaseModel):
+    word: str
+    meaning: str
+    definition: Optional[str] = None
+    example_sentence: Optional[str] = None
+    order_index: int
+
+class LearningCenterUpdate(BaseModel):
+    title: str
+    logo: Optional[str] = None
+
 # Response Schemas
 class ApiResponse(BaseModel):
     success: bool
