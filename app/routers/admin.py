@@ -1264,3 +1264,52 @@ def upload_center_logo(
     db.commit()
     
     return APIResponse.success({"message": "Center logo uploaded successfully", "logo_url": file_path})
+
+
+# Standalone File Upload Endpoints (return paths only)
+@router.post("/upload/word-image")
+def upload_word_image_standalone(
+        file: UploadFile = File(...),
+        current_user: dict = Depends(get_admin_user)
+):
+    """Upload word image and return path for later use"""
+    # Validate file type
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+    
+    # Save file and return path
+    file_path = save_uploaded_file(file, "word-images")
+    
+    return APIResponse.success({"image_url": file_path})
+
+
+@router.post("/upload/word-audio")
+def upload_word_audio_standalone(
+        file: UploadFile = File(...),
+        current_user: dict = Depends(get_admin_user)
+):
+    """Upload word audio and return path for later use"""
+    # Validate file type
+    if not file.content_type.startswith("audio/"):
+        raise HTTPException(status_code=400, detail="File must be an audio file")
+    
+    # Save file and return path
+    file_path = save_uploaded_file(file, "word-audio")
+    
+    return APIResponse.success({"audio_url": file_path})
+
+
+@router.post("/upload/logo")
+def upload_logo_standalone(
+        file: UploadFile = File(...),
+        current_user: dict = Depends(get_admin_user)
+):
+    """Upload center logo and return path for later use"""
+    # Validate file type
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+    
+    # Save file and return path
+    file_path = save_uploaded_file(file, "logos")
+    
+    return APIResponse.success({"logo_url": file_path})
