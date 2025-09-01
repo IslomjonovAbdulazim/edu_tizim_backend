@@ -85,6 +85,11 @@ storage/temp/*
 !storage/documents/.gitkeep
 !storage/temp/.gitkeep
 
+# Keep directory structure for uploaded files
+!storage/logos/.gitkeep
+!storage/word-images/.gitkeep
+!storage/word-audio/.gitkeep
+
 # OS generated files
 .DS_Store
 .DS_Store?
