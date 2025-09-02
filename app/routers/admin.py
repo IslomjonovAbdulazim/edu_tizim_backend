@@ -1254,34 +1254,10 @@ def upload_word_audio(
     if not file.content_type.startswith("audio/"):
         raise HTTPException(status_code=400, detail="File must be an audio file")
     
-    # Save to temporary file to check duration
-    import tempfile
-    from mutagen import File as MutagenFile
-    
-    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-        content = file.file.read()
-        
-        # Check file size - max 1MB
-        if len(content) > 1 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail="Audio size must be less than 1MB")
-            
-        temp_file.write(content)
-        temp_file.flush()
-        
-        try:
-            # Check audio duration
-            audio_file = MutagenFile(temp_file.name)
-            if audio_file is None:
-                raise HTTPException(status_code=400, detail="Invalid audio file format")
-            
-            duration = audio_file.info.length
-            if duration > 7.0:
-                raise HTTPException(status_code=400, detail="Audio duration must be 7 seconds or less")
-                
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Audio validation failed: {str(e)}")
-        finally:
-            os.unlink(temp_file.name)
+    # Check file size - max 1MB
+    file_content = file.file.read()
+    if len(file_content) > 1 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Audio size must be less than 1MB")
     
     # Reset file pointer
     file.file.seek(0)
