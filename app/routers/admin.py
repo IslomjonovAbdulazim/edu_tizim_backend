@@ -379,7 +379,7 @@ def get_group_members(
     return APIResponse.success([{
         "profile_id": member.profile_id,
         "full_name": member.profile.full_name,
-        "joined_at": member.created_at
+        "joined_at": member.joined_at
     } for member in members])
 
 
