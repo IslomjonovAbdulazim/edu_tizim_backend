@@ -11,7 +11,7 @@ from .. import schemas
 router = APIRouter()
 
 
-@router.post("/login", response_model=schemas.Token)
+@router.post("/login")
 def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
     """Login for admin/teacher/super-admin with email/password"""
     if not user_data.email or not user_data.password:
@@ -112,7 +112,7 @@ def request_verification_code(
     })
 
 
-@router.post("/student/verify", response_model=schemas.Token)
+@router.post("/student/verify")
 def verify_student_code(
         verification_data: schemas.VerificationCode,
         db: Session = Depends(get_db)
@@ -161,14 +161,16 @@ def verify_student_code(
         }
     )
 
-    return schemas.Token(
-        access_token=access_token,
-        token_type="bearer",
-        expires_in=2592000
-    )
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in": 2592000,
+        "center_id": center_id,
+        "role": user.role.value
+    }
 
 
-@router.post("/student/telegram-login", response_model=schemas.Token)
+@router.post("/student/telegram-login")
 def telegram_direct_login(
         telegram_data: schemas.PhoneLogin,
         db: Session = Depends(get_db)
@@ -211,11 +213,13 @@ def telegram_direct_login(
         }
     )
 
-    return schemas.Token(
-        access_token=access_token,
-        token_type="bearer",
-        expires_in=2592000
-    )
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in": 2592000,
+        "center_id": center_id,
+        "role": user.role.value
+    }
 
 
 @router.post("/refresh")
@@ -229,11 +233,13 @@ def refresh_token(current_user: dict = Depends(get_current_user)):
         }
     )
 
-    return schemas.Token(
-        access_token=access_token,
-        token_type="bearer",
-        expires_in=2592000
-    )
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in": 2592000,
+        "center_id": current_user["center_id"],
+        "role": current_user["role"]
+    }
 
 
 @router.post("/logout")
