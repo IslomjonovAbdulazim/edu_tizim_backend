@@ -155,10 +155,17 @@ def get_group_students(
                 "completed_lessons": completed_lessons,
                 "total_lessons": len(total_progress),
                 "average_percentage": round(avg_percentage, 2),
-                "total_coins": total_coins
+                "total_coins": total_coins,
+                "total_points": total_coins
             }
         }
         students_with_progress.append(student_data)
+
+    # Sort students by points (descending) and add rank
+    students_with_progress.sort(key=lambda x: x["progress"]["total_points"], reverse=True)
+    
+    for i, student in enumerate(students_with_progress):
+        student["rank"] = i + 1
 
     return APIResponse.success({
         "group": {
@@ -289,7 +296,9 @@ def get_teacher_analytics(
 
     # Active students (those who practiced in last 7 days)
     week_ago = datetime.now() - timedelta(days=7)
-    active_students = db.query(Progress.profile_id).join(GroupMember).filter(
+    active_students = db.query(Progress.profile_id).join(
+        GroupMember, GroupMember.profile_id == Progress.profile_id
+    ).filter(
         GroupMember.group_id.in_(group_ids),
         Progress.last_practiced >= week_ago
     ).distinct().count() if group_ids else 0
@@ -297,8 +306,10 @@ def get_teacher_analytics(
     # Average completion rate
     all_progress = []
     if group_ids:
-        all_progress = db.query(Progress).join(LearningCenterProfile).join(
-            GroupMember
+        all_progress = db.query(Progress).join(
+            LearningCenterProfile, Progress.profile_id == LearningCenterProfile.id
+        ).join(
+            GroupMember, GroupMember.profile_id == LearningCenterProfile.id
         ).filter(
             GroupMember.group_id.in_(group_ids)
         ).all()
