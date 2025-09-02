@@ -6,6 +6,7 @@ from ..models import *
 from ..services import LeaderboardService
 from ..utils import APIResponse, check_center_active, get_current_user_data
 from ..dependencies import get_current_user
+from .. import schemas
 
 router = APIRouter()
 
