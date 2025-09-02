@@ -228,6 +228,11 @@ class PasswordChangeRequest(BaseModel):
 class AdminPasswordChangeRequest(BaseModel):
     new_password: str
 
+class TeacherPasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
+    confirm_password: str
+
 class StudentLimitChangeRequest(BaseModel):
     new_student_limit: int
 

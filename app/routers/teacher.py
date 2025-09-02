@@ -443,3 +443,32 @@ def get_weekly_report(
             "daily_breakdown": sorted(daily_activity.values(), key=lambda x: x["date"])
         }
     })
+
+
+@router.patch("/password")
+def change_teacher_password(
+        password_data: schemas.TeacherPasswordChangeRequest,
+        current_user: dict = Depends(get_teacher_user),
+        db: Session = Depends(get_db)
+):
+    """Change teacher password"""
+    # Validate password confirmation
+    if password_data.new_password != password_data.confirm_password:
+        raise HTTPException(status_code=400, detail="New passwords do not match")
+    
+    # Get current teacher user
+    teacher_user = db.query(User).filter(User.id == current_user["user_id"]).first()
+    if not teacher_user:
+        raise HTTPException(status_code=404, detail="Teacher user not found")
+    
+    # Verify current password
+    from ..utils import verify_password
+    if not verify_password(password_data.current_password, teacher_user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    
+    # Update password
+    from ..utils import hash_password
+    teacher_user.password_hash = hash_password(password_data.new_password)
+    db.commit()
+    
+    return APIResponse.success({"message": "Password updated successfully"})
