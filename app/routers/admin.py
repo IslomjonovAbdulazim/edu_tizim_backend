@@ -370,17 +370,37 @@ def get_group_members(
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
 
-    # Get all group members with profile information
-    members = db.query(GroupMember).join(LearningCenterProfile).filter(
+    # Get all group members with profile information and coins
+    members = db.query(
+        GroupMember.profile_id,
+        GroupMember.joined_at,
+        LearningCenterProfile.full_name,
+        func.coalesce(func.sum(Coin.amount), 0).label('total_coins')
+    ).join(
+        LearningCenterProfile, GroupMember.profile_id == LearningCenterProfile.id
+    ).outerjoin(
+        Coin, Coin.profile_id == LearningCenterProfile.id
+    ).filter(
         GroupMember.group_id == group_id,
         LearningCenterProfile.is_active == True
-    ).all()
+    ).group_by(
+        GroupMember.profile_id,
+        GroupMember.joined_at,
+        LearningCenterProfile.full_name
+    ).order_by(func.sum(Coin.amount).desc().nullslast()).all()
 
-    return APIResponse.success([{
-        "profile_id": member.profile_id,
-        "full_name": member.profile.full_name,
-        "joined_at": member.joined_at
-    } for member in members])
+    # Add rank to members
+    members_with_rank = []
+    for rank, member in enumerate(members, 1):
+        members_with_rank.append({
+            "profile_id": member.profile_id,
+            "full_name": member.full_name,
+            "total_coins": int(member.total_coins),
+            "rank": rank,
+            "joined_at": member.joined_at
+        })
+
+    return APIResponse.success(members_with_rank)
 
 
 @router.post("/groups/{group_id}/members/{profile_id}")
