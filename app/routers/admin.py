@@ -4,7 +4,8 @@ from sqlalchemy import desc, func
 from ..database import get_db
 from ..models import *
 from ..services import ContentService, LeaderboardService
-from ..utils import APIResponse, get_current_user_data, check_center_active, hash_password, paginate, format_phone, validate_uzbek_phone
+from ..utils import APIResponse, get_current_user_data, check_center_active, hash_password, paginate, format_phone, \
+    validate_uzbek_phone
 from ..dependencies import get_current_user
 from .. import schemas
 import os
@@ -93,7 +94,7 @@ def create_student(
     check_center_active(center_id, db)
 
     phone = format_phone(student_data.phone)
-    
+
     # Validate Uzbekistan phone number
     if not validate_uzbek_phone(phone):
         raise HTTPException(status_code=400, detail="Invalid Uzbekistan phone number format")
@@ -213,7 +214,7 @@ def get_students(
         query = query.filter(LearningCenterProfile.full_name.ilike(f"%{search}%"))
 
     result = paginate(query, page, size)
-    
+
     # Add phone from User table to each student
     students_with_phone = []
     for student in result["items"]:
@@ -230,7 +231,7 @@ def get_students(
             "updated_at": student.updated_at
         }
         students_with_phone.append(student_dict)
-    
+
     return APIResponse.paginated(students_with_phone, result["total"], result["page"], result["size"])
 
 
@@ -465,15 +466,15 @@ def update_group(
         Group.id == group_id,
         Group.center_id == current_user["center_id"]
     ).first()
-    
+
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
-    
+
     group.name = group_data.name
     group.teacher_id = group_data.teacher_id
     group.course_id = group_data.course_id
     db.commit()
-    
+
     return APIResponse.success({"message": "Group updated successfully"})
 
 
@@ -488,13 +489,13 @@ def delete_group(
         Group.id == group_id,
         Group.center_id == current_user["center_id"]
     ).first()
-    
+
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
-    
+
     group.is_active = False
     db.commit()
-    
+
     return APIResponse.success({"message": "Group deleted successfully"})
 
 
@@ -511,22 +512,22 @@ def remove_student_from_group(
         Group.id == group_id,
         Group.center_id == current_user["center_id"]
     ).first()
-    
+
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
-    
+
     # Remove member
     member = db.query(GroupMember).filter(
         GroupMember.group_id == group_id,
         GroupMember.profile_id == profile_id
     ).first()
-    
+
     if not member:
         raise HTTPException(status_code=404, detail="Student not in group")
-    
+
     db.delete(member)
     db.commit()
-    
+
     return APIResponse.success({"message": "Student removed from group successfully"})
 
 
@@ -709,25 +710,25 @@ def save_uploaded_file(file: UploadFile, folder: str) -> str:
     """Save uploaded file and return relative path"""
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file selected")
-    
+
     try:
         # Use persistent storage path from environment
         base_storage = os.getenv("STORAGE_PATH", "/tmp/persistent_storage")
         storage_path = Path(base_storage) / folder
         storage_path.mkdir(parents=True, exist_ok=True)
-        
+
         # Generate unique filename
         file_extension = Path(file.filename).suffix.lower()
         unique_filename = f"{uuid.uuid4()}{file_extension}"
         file_path = storage_path / unique_filename
-        
+
         # Save file
         with open(file_path, "wb") as buffer:
             content = file.file.read()
             buffer.write(content)
-        
+
         return f"/storage/{folder}/{unique_filename}"
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
 
@@ -742,19 +743,19 @@ def update_student(
 ):
     """Update student information"""
     center_id = current_user["center_id"]
-    
+
     profile = db.query(LearningCenterProfile).filter(
         LearningCenterProfile.id == profile_id,
         LearningCenterProfile.center_id == center_id,
         LearningCenterProfile.role_in_center == UserRole.STUDENT
     ).first()
-    
+
     if not profile:
         raise HTTPException(status_code=404, detail="Student not found")
-    
+
     profile.full_name = student_data.full_name
     db.commit()
-    
+
     return APIResponse.success({"message": "Student updated successfully"})
 
 
@@ -766,19 +767,19 @@ def delete_student(
 ):
     """Soft delete student"""
     center_id = current_user["center_id"]
-    
+
     profile = db.query(LearningCenterProfile).filter(
         LearningCenterProfile.id == profile_id,
         LearningCenterProfile.center_id == center_id,
         LearningCenterProfile.role_in_center == UserRole.STUDENT
     ).first()
-    
+
     if not profile:
         raise HTTPException(status_code=404, detail="Student not found")
-    
+
     profile.is_active = False
     db.commit()
-    
+
     return APIResponse.success({"message": "Student deleted successfully"})
 
 
@@ -792,26 +793,26 @@ def update_teacher(
 ):
     """Update teacher information"""
     center_id = current_user["center_id"]
-    
+
     profile = db.query(LearningCenterProfile).filter(
         LearningCenterProfile.id == profile_id,
         LearningCenterProfile.center_id == center_id,
         LearningCenterProfile.role_in_center == UserRole.TEACHER
     ).first()
-    
+
     if not profile:
         raise HTTPException(status_code=404, detail="Teacher not found")
-    
+
     profile.full_name = teacher_data.full_name
-    
+
     # Update password if provided
     if teacher_data.password:
         user = db.query(User).filter(User.id == profile.user_id).first()
         if user:
             user.password_hash = hash_password(teacher_data.password)
-    
+
     db.commit()
-    
+
     return APIResponse.success({"message": "Teacher updated successfully"})
 
 
@@ -823,19 +824,19 @@ def delete_teacher(
 ):
     """Soft delete teacher"""
     center_id = current_user["center_id"]
-    
+
     profile = db.query(LearningCenterProfile).filter(
         LearningCenterProfile.id == profile_id,
         LearningCenterProfile.center_id == center_id,
         LearningCenterProfile.role_in_center == UserRole.TEACHER
     ).first()
-    
+
     if not profile:
         raise HTTPException(status_code=404, detail="Teacher not found")
-    
+
     profile.is_active = False
     db.commit()
-    
+
     return APIResponse.success({"message": "Teacher deleted successfully"})
 
 
@@ -869,7 +870,7 @@ def get_analytics_overview(
     # Allow admin, teacher, and student access
     if current_user["role"] not in ["admin", "teacher", "student"]:
         raise HTTPException(status_code=403, detail="Access denied")
-    
+
     center_id = current_user["center_id"]
 
     # Get top students
@@ -904,12 +905,12 @@ def get_courses(
 ):
     """Get all courses in center"""
     center_id = current_user["center_id"]
-    
+
     courses = db.query(Course).filter(
         Course.center_id == center_id,
         Course.is_active == True
     ).all()
-    
+
     return APIResponse.success([{
         "id": c.id,
         "title": c.title,
@@ -930,16 +931,16 @@ def update_course(
         Course.id == course_id,
         Course.center_id == current_user["center_id"]
     ).first()
-    
+
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-    
+
     course.title = course_data.title
     course.description = course_data.description
     db.commit()
-    
+
     ContentService.invalidate_center_cache(current_user["center_id"])
-    
+
     return APIResponse.success({"message": "Course updated successfully"})
 
 
@@ -954,15 +955,15 @@ def delete_course(
         Course.id == course_id,
         Course.center_id == current_user["center_id"]
     ).first()
-    
+
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-    
+
     course.is_active = False
     db.commit()
-    
+
     ContentService.invalidate_center_cache(current_user["center_id"])
-    
+
     return APIResponse.success({"message": "Course deleted successfully"})
 
 
@@ -979,15 +980,15 @@ def get_modules(
         Course.id == course_id,
         Course.center_id == current_user["center_id"]
     ).first()
-    
+
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-    
+
     modules = db.query(Module).filter(
         Module.course_id == course_id,
         Module.is_active == True
     ).order_by(Module.order_index).all()
-    
+
     return APIResponse.success([{
         "id": m.id,
         "title": m.title,
@@ -1010,17 +1011,17 @@ def update_module(
         Module.id == module_id,
         Course.center_id == current_user["center_id"]
     ).first()
-    
+
     if not module:
         raise HTTPException(status_code=404, detail="Module not found")
-    
+
     module.title = module_data.title
     module.description = module_data.description
     module.order_index = module_data.order_index
     db.commit()
-    
+
     ContentService.invalidate_center_cache(current_user["center_id"])
-    
+
     return APIResponse.success({"message": "Module updated successfully"})
 
 
@@ -1036,15 +1037,15 @@ def delete_module(
         Module.id == module_id,
         Course.center_id == current_user["center_id"]
     ).first()
-    
+
     if not module:
         raise HTTPException(status_code=404, detail="Module not found")
-    
+
     module.is_active = False
     db.commit()
-    
+
     ContentService.invalidate_center_cache(current_user["center_id"])
-    
+
     return APIResponse.success({"message": "Module deleted successfully"})
 
 
@@ -1061,15 +1062,15 @@ def get_lessons(
         Module.id == module_id,
         Course.center_id == current_user["center_id"]
     ).first()
-    
+
     if not module:
         raise HTTPException(status_code=404, detail="Module not found")
-    
+
     lessons = db.query(Lesson).filter(
         Lesson.module_id == module_id,
         Lesson.is_active == True
     ).order_by(Lesson.order_index).all()
-    
+
     return APIResponse.success([{
         "id": l.id,
         "title": l.title,
@@ -1092,17 +1093,17 @@ def update_lesson(
         Lesson.id == lesson_id,
         Course.center_id == current_user["center_id"]
     ).first()
-    
+
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
-    
+
     lesson.title = lesson_data.title
     lesson.description = lesson_data.description
     lesson.order_index = lesson_data.order_index
     db.commit()
-    
+
     ContentService.invalidate_center_cache(current_user["center_id"])
-    
+
     return APIResponse.success({"message": "Lesson updated successfully"})
 
 
@@ -1118,15 +1119,15 @@ def delete_lesson(
         Lesson.id == lesson_id,
         Course.center_id == current_user["center_id"]
     ).first()
-    
+
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
-    
+
     lesson.is_active = False
     db.commit()
-    
+
     ContentService.invalidate_center_cache(current_user["center_id"])
-    
+
     return APIResponse.success({"message": "Lesson deleted successfully"})
 
 
@@ -1143,15 +1144,15 @@ def get_words(
         Lesson.id == lesson_id,
         Course.center_id == current_user["center_id"]
     ).first()
-    
+
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
-    
+
     words = db.query(Word).filter(
         Word.lesson_id == lesson_id,
         Word.is_active == True
     ).order_by(Word.order_index).all()
-    
+
     return APIResponse.success([{
         "id": w.id,
         "word": w.word,
@@ -1178,19 +1179,19 @@ def update_word(
         Word.id == word_id,
         Course.center_id == current_user["center_id"]
     ).first()
-    
+
     if not word:
         raise HTTPException(status_code=404, detail="Word not found")
-    
+
     word.word = word_data.word
     word.meaning = word_data.meaning
     word.definition = word_data.definition
     word.example_sentence = word_data.example_sentence
     word.order_index = word_data.order_index
     db.commit()
-    
+
     ContentService.invalidate_center_cache(current_user["center_id"])
-    
+
     return APIResponse.success({"message": "Word updated successfully"})
 
 
@@ -1206,15 +1207,15 @@ def delete_word(
         Word.id == word_id,
         Course.center_id == current_user["center_id"]
     ).first()
-    
+
     if not word:
         raise HTTPException(status_code=404, detail="Word not found")
-    
+
     word.is_active = False
     db.commit()
-    
+
     ContentService.invalidate_center_cache(current_user["center_id"])
-    
+
     return APIResponse.success({"message": "Word deleted successfully"})
 
 
@@ -1231,29 +1232,29 @@ def upload_word_image(
         Word.id == word_id,
         Course.center_id == current_user["center_id"]
     ).first()
-    
+
     if not word:
         raise HTTPException(status_code=404, detail="Word not found")
-    
+
     # Validate file type
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
-    
+
     # Check file size - max 1MB
     file_content = file.file.read()
     if len(file_content) > 1 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="Image size must be less than 1MB")
-    
+
     # Reset file pointer
     file.file.seek(0)
-    
+
     # Save file
     file_path = save_uploaded_file(file, "word-images")
     word.image_url = file_path
     db.commit()
-    
+
     ContentService.invalidate_center_cache(current_user["center_id"])
-    
+
     return APIResponse.success({"message": "Word image uploaded successfully", "image_url": file_path})
 
 
@@ -1270,29 +1271,29 @@ def upload_word_audio(
         Word.id == word_id,
         Course.center_id == current_user["center_id"]
     ).first()
-    
+
     if not word:
         raise HTTPException(status_code=404, detail="Word not found")
-    
+
     # Validate file type
     if not file.content_type.startswith("audio/"):
         raise HTTPException(status_code=400, detail="File must be an audio file")
-    
+
     # Check file size - max 1MB
     file_content = file.file.read()
     if len(file_content) > 1 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="Audio size must be less than 1MB")
-    
+
     # Reset file pointer
     file.file.seek(0)
-    
+
     # Save file
     file_path = save_uploaded_file(file, "word-audio")
     word.audio_url = file_path
     db.commit()
-    
+
     ContentService.invalidate_center_cache(current_user["center_id"])
-    
+
     return APIResponse.success({"message": "Word audio uploaded successfully", "audio_url": file_path})
 
 
@@ -1306,11 +1307,11 @@ def get_center_payments(
 ):
     """Get payment history for center"""
     center_id = current_user["center_id"]
-    
+
     query = db.query(Payment).filter(Payment.center_id == center_id)
     query = query.order_by(desc(Payment.created_at))
     result = paginate(query, page, size)
-    
+
     payments = [{
         "id": p.id,
         "amount": p.amount,
@@ -1318,7 +1319,7 @@ def get_center_payments(
         "description": p.description,
         "created_at": p.created_at
     } for p in result["items"]]
-    
+
     return APIResponse.paginated(payments, result["total"], result["page"], result["size"])
 
 
@@ -1330,11 +1331,11 @@ def get_center_info(
 ):
     """Get basic learning center information"""
     center_id = current_user["center_id"]
-    
+
     center = db.query(LearningCenter).filter(LearningCenter.id == center_id).first()
     if not center:
         raise HTTPException(status_code=404, detail="Center not found")
-    
+
     return APIResponse.success({
         "id": center.id,
         "title": center.title,
@@ -1354,14 +1355,14 @@ def update_center(
 ):
     """Update learning center title only"""
     center_id = current_user["center_id"]
-    
+
     center = db.query(LearningCenter).filter(LearningCenter.id == center_id).first()
     if not center:
         raise HTTPException(status_code=404, detail="Center not found")
-    
+
     center.title = center_data.title
     db.commit()
-    
+
     return APIResponse.success({"message": "Center updated successfully"})
 
 
@@ -1373,31 +1374,30 @@ def upload_center_logo(
 ):
     """Upload logo for learning center (PNG only, max 3MB)"""
     center_id = current_user["center_id"]
-    
+
     center = db.query(LearningCenter).filter(LearningCenter.id == center_id).first()
     if not center:
         raise HTTPException(status_code=404, detail="Center not found")
-    
+
     # Validate file type - PNG only
     if file.content_type != "image/png":
         raise HTTPException(status_code=400, detail="Only PNG files are allowed")
-    
+
     # Read file content to check size
     file_content = file.file.read()
     file_size = len(file_content)
-    
+
     # Check file size - max 3MB
     if file_size > 3 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File size must be less than 3MB")
-    
+
     # Reset file pointer
     file.file.seek(0)
-    
+
     # Save file
     file_path = save_uploaded_file(file, "logos")
     center.logo = file_path
     db.commit()
-    
-    return APIResponse.success({"message": "Center logo uploaded successfully", "logo_url": file_path})
 
+    return APIResponse.success({"message": "Center logo uploaded successfully", "logo_url": file_path})
 
