@@ -370,11 +370,12 @@ def get_group_members(
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
 
-    # Get all group members with profile information and coins
+    # Get all group members with profile information, coins, and phone
     members = db.query(
         GroupMember.profile_id,
         GroupMember.joined_at,
         LearningCenterProfile.full_name,
+        LearningCenterProfile.user_id,
         func.coalesce(func.sum(Coin.amount), 0).label('total_coins')
     ).join(
         LearningCenterProfile, GroupMember.profile_id == LearningCenterProfile.id
@@ -386,15 +387,18 @@ def get_group_members(
     ).group_by(
         GroupMember.profile_id,
         GroupMember.joined_at,
-        LearningCenterProfile.full_name
+        LearningCenterProfile.full_name,
+        LearningCenterProfile.user_id
     ).order_by(func.sum(Coin.amount).desc().nullslast()).all()
 
-    # Add rank to members
+    # Add rank and phone number to members
     members_with_rank = []
     for rank, member in enumerate(members, 1):
+        user = db.query(User).filter(User.id == member.user_id).first()
         members_with_rank.append({
             "profile_id": member.profile_id,
             "full_name": member.full_name,
+            "phone": user.phone if user else None,
             "total_coins": int(member.total_coins),
             "rank": rank,
             "joined_at": member.joined_at
