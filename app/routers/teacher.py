@@ -207,8 +207,10 @@ def get_student_progress(
         Progress.profile_id == student_id
     ).all()
 
-    # Get word progress for weak words
-    weak_words = db.query(WordProgress).filter(
+    # Get word progress for weak words with word details
+    weak_words = db.query(WordProgress, Word).join(
+        Word, WordProgress.word_id == Word.id
+    ).filter(
         WordProgress.profile_id == student_id,
         WordProgress.last_seven_attempts.like('%0%')
     ).limit(20).all()
@@ -231,10 +233,12 @@ def get_student_progress(
             "last_practiced": p.last_practiced
         } for p in progress_records],
         "weak_words": [{
-            "word_id": w.word_id,
-            "last_seven_attempts": w.last_seven_attempts,
-            "total_correct": w.total_correct,
-            "total_attempts": w.total_attempts
+            "word_id": w.WordProgress.word_id,
+            "word": w.Word.word,
+            "meaning": w.Word.meaning,
+            "last_seven_attempts": w.WordProgress.last_seven_attempts,
+            "total_correct": w.WordProgress.total_correct,
+            "total_attempts": w.WordProgress.total_attempts
         } for w in weak_words],
         "recent_activity": [{
             "amount": c.amount,
