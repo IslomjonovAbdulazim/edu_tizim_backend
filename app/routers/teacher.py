@@ -990,6 +990,27 @@ def get_student_detailed_progress(
     })
 
 
+@router.patch("/profile")
+def update_teacher_profile(
+        teacher_data: schemas.TeacherUpdate,
+        current_user: dict = Depends(get_teacher_user),
+        db: Session = Depends(get_db)
+):
+    """Update teacher profile information"""
+    profile = current_user["profile"]
+    
+    # Update profile name only
+    profile.full_name = teacher_data.full_name
+    
+    db.commit()
+    
+    return APIResponse.success({
+        "id": profile.id,
+        "full_name": profile.full_name,
+        "message": "Profile updated successfully"
+    })
+
+
 @router.patch("/password")
 def change_teacher_password(
         password_data: schemas.TeacherPasswordChangeRequest,
