@@ -127,7 +127,17 @@ def create_student(
     ).first()
 
     if existing_profile:
-        raise HTTPException(status_code=400, detail="Student already exists in this center")
+        if not existing_profile.is_active:
+            # Reactivate inactive profile
+            existing_profile.is_active = True
+            existing_profile.full_name = student_data.full_name
+            db.commit()
+            return APIResponse.success({
+                "profile_id": existing_profile.id,
+                "message": "Student reactivated successfully"
+            })
+        else:
+            raise HTTPException(status_code=400, detail="Student already exists in this center")
 
     profile = LearningCenterProfile(
         user_id=user.id,
