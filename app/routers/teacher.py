@@ -1023,7 +1023,7 @@ def change_teacher_password(
         raise HTTPException(status_code=400, detail="New passwords do not match")
     
     # Get current teacher user
-    teacher_user = db.query(User).filter(User.id == current_user["user_id"]).first()
+    teacher_user = db.query(User).filter(User.id == current_user["user"].id).first()
     if not teacher_user:
         raise HTTPException(status_code=404, detail="Teacher user not found")
     
