@@ -98,7 +98,7 @@ def get_student_info(current_user: dict = Depends(get_current_user), db: Session
             
             center_lessons = len(center_progress)
             center_completed = len([p for p in center_progress if p.completed])
-            center_coins = profile.coins if hasattr(profile, 'coins') else 0
+            center_coins = sum([coin.amount for coin in profile.coins]) if profile.coins else 0
             
             total_progress_stats["total_lessons"] += center_lessons
             total_progress_stats["completed_lessons"] += center_completed
