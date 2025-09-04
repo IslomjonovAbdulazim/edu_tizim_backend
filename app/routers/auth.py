@@ -7,6 +7,9 @@ from ..services import AuthService
 from ..utils import APIResponse, format_phone, \
     validate_phone, generate_verification_code, create_access_token, send_telegram_message, verify_password
 from .. import schemas
+import os
+
+TEST_VERIFICATION_CODE = os.getenv("TEST_VERIFICATION_CODE")
 
 router = APIRouter()
 
@@ -76,13 +79,28 @@ def verify_student_code(
             detail="Phone and code are required"
         )
 
-    # Check verification code from Redis
-    stored_code = RedisService.get_verification_code(phone)
-    if not stored_code or stored_code != code:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired verification code"
-        )
+    # Check verification code - test code has priority
+    # If test code exists, is numeric, and greater than 1, check it first
+    if TEST_VERIFICATION_CODE and TEST_VERIFICATION_CODE.isdigit() and int(TEST_VERIFICATION_CODE) > 1:
+        if code == TEST_VERIFICATION_CODE:
+            # Test code match - skip Redis check completely
+            pass
+        else:
+            # Test code doesn't match, check Redis
+            stored_code = RedisService.get_verification_code(phone)
+            if not stored_code or stored_code != code:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid or expired verification code"
+                )
+    else:
+        # No valid test code, only check Redis
+        stored_code = RedisService.get_verification_code(phone)
+        if not stored_code or stored_code != code:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired verification code"
+            )
 
     # Remove used code
     RedisService.delete_verification_code(phone)
