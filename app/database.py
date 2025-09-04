@@ -128,6 +128,18 @@ class RedisService:
         key = f"verify:{phone}"
         return RedisService.delete(key)
 
+    @staticmethod
+    def get_verification_code_ttl(phone: str):
+        """Get remaining TTL for verification code"""
+        if not redis_client:
+            return 0
+        try:
+            key = f"verify:{phone}"
+            return redis_client.ttl(key)
+        except Exception as e:
+            print(f"Redis TTL error: {e}")
+            return 0
+
 # Backwards compatibility
 get_cache = RedisService.get
 set_cache = RedisService.set

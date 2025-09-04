@@ -60,57 +60,6 @@ def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
     }
 
 
-@router.post("/student/request-code")
-def request_verification_code(
-        phone_data: schemas.VerificationRequest,
-        db: Session = Depends(get_db)
-):
-    """Request SMS/Telegram verification code for student"""
-    phone = format_phone(phone_data.phone)
-
-    if not validate_phone(phone):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid phone number format"
-        )
-
-    user = AuthService.get_user_by_phone(db, phone)
-    if not user or user.role != UserRole.STUDENT:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Student not found with this phone number"
-        )
-
-    # Generate and store verification code in Redis
-    code = generate_verification_code()
-
-    # Store with 5 minutes expiration
-    if not RedisService.store_verification_code(phone, code, 300):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate verification code. Please try again."
-        )
-
-    # Send via Telegram if available
-    success = False
-    if user.telegram_id:
-        message = f"🔐 Your verification code: {code}\n\nValid for 5 minutes."
-        success = send_telegram_message(user.telegram_id, message)
-
-    if not success:
-        # Clean up Redis if sending failed
-        RedisService.delete_verification_code(phone)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to send verification code. Please check your Telegram ID."
-        )
-
-    return APIResponse.success({
-        "message": "Verification code sent to your Telegram",
-        "phone": phone,
-        "expires_in": 300
-    })
-
 
 @router.post("/student/verify")
 def verify_student_code(
