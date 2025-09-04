@@ -1,24 +1,52 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..dependencies import get_current_user
 from ..models import *
-from ..utils import APIResponse, require_role
+from ..utils import APIResponse, require_role, verify_token
 from .. import schemas
+
+security = HTTPBearer()
+
+def get_student_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    """Get student user without center validation"""
+    token = credentials.credentials
+    payload = verify_token(token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )
+    
+    user = db.query(User).filter(
+        User.id == payload["user_id"], 
+        User.is_active == True
+    ).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive"
+        )
+    
+    if user.role != UserRole.STUDENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This endpoint is for students only"
+        )
+    
+    return {"user": user}
 
 router = APIRouter()
 
 
 @router.get("/info")
-def get_student_info(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_student_info(current_user: dict = Depends(get_student_user), db: Session = Depends(get_db)):
     """Get student's complete information including all profiles, centers, and groups"""
-    
-    # Ensure only students can access this endpoint
-    if current_user["role"] != "student":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="This endpoint is for students only"
-        )
     
     user = current_user["user"]
     

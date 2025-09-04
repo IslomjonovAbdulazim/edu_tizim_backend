@@ -94,10 +94,16 @@ def get_current_user_data(db: Session, user_id: int, center_id: Optional[int] = 
             ).first()
 
     if not profile and user.role != UserRole.SUPER_ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No access to this center"
-        )
+        if user.role == UserRole.STUDENT:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This user has not joined any learning center yet"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No access to this center"
+            )
 
     return {
         "user": user,
