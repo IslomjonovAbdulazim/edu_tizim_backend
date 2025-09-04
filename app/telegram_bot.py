@@ -9,7 +9,7 @@ from sqlalchemy import and_
 
 from .database import SessionLocal, RedisService
 from .models import User, TelegramOTP, UserRole
-from .utils import format_phone, validate_phone, generate_verification_code, format_phone_display
+from .utils import format_phone, validate_phone, validate_uzbek_phone, generate_verification_code, format_phone_display
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -65,7 +65,7 @@ class TelegramBot:
         phone = format_phone(phone)
         
         # Validate phone number
-        if not validate_phone(phone) or len(phone) != 13:
+        if not validate_uzbek_phone(phone):
             await update.message.reply_text("❌ Telefon raqami formati noto'g'ri. Qaytadan urinib ko'ring.")
             return
         
@@ -108,7 +108,7 @@ class TelegramBot:
         if text.startswith('+') or text.isdigit():
             phone = format_phone(text)
             
-            if validate_phone(phone) and len(phone) == 13:
+            if validate_uzbek_phone(phone):
                 db = SessionLocal()
                 try:
                     user = db.query(User).filter(User.phone == phone).first()
