@@ -28,8 +28,7 @@ def get_student_info(current_user: dict = Depends(get_current_user), db: Session
     groups = []
     if profile:
         group_members = db.query(GroupMember).filter(
-            GroupMember.profile_id == profile.id,
-            GroupMember.is_active == True
+            GroupMember.profile_id == profile.id
         ).all()
         
         for member in group_members:
