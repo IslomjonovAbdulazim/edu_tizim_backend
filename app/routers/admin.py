@@ -113,6 +113,11 @@ def create_student(
         db.commit()
         db.refresh(user)
     else:
+        # Reactivate user if inactive
+        if not existing_user.is_active:
+            existing_user.is_active = True
+            existing_user.telegram_id = student_data.telegram_id
+            db.commit()
         user = existing_user
 
     # Check if profile already exists in this center
@@ -165,6 +170,11 @@ def create_teacher(
         db.commit()
         db.refresh(user)
     else:
+        # Reactivate user if inactive
+        if not existing_user.is_active:
+            existing_user.is_active = True
+            existing_user.password_hash = hash_password(teacher_data.password)
+            db.commit()
         user = existing_user
 
     # Check if profile already exists
