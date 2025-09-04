@@ -8,7 +8,7 @@ import atexit
 
 from .database import engine, SessionLocal
 from .models import Base, User, UserRole
-from .routers import auth, super_admin, admin, teacher, content
+from .routers import auth, super_admin, admin, teacher, content, telegram
 from .utils import hash_password
 from .services import SchedulerService
 
@@ -57,6 +57,7 @@ app.include_router(super_admin.router, prefix="/api/super-admin", tags=["Super A
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(teacher.router, prefix="/api/teacher", tags=["Teacher"])
 app.include_router(content.router, prefix="/api/content", tags=["Content"])
+app.include_router(telegram.router, prefix="/api/telegram", tags=["Telegram Bot"])
 
 @app.get("/")
 def root():

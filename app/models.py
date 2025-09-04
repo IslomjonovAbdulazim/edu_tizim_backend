@@ -237,3 +237,19 @@ class Payment(Base):
 
     # Relationships
     center = relationship("LearningCenter", back_populates="payments")
+
+class TelegramOTP(Base):
+    __tablename__ = "telegram_otp"
+
+    id = Column(Integer, primary_key=True, index=True)
+    phone = Column(String(20), nullable=False, index=True)
+    telegram_id = Column(String(50), nullable=False, index=True)
+    otp_code = Column(String(10), nullable=False)
+    is_sent = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+    expires_at = Column(DateTime, nullable=False)
+
+    # Indexes
+    __table_args__ = (
+        Index('idx_telegram_otp_phone_telegram', 'phone', 'telegram_id'),
+    )

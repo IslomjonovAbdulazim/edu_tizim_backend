@@ -446,6 +446,210 @@ def get_weekly_report(
     })
 
 
+@router.get("/students/{student_id}/detailed-progress")
+def get_student_detailed_progress(
+        student_id: int,
+        current_user: dict = Depends(get_teacher_user),
+        db: Session = Depends(get_db)
+):
+    """Get comprehensive student progress with modules, lessons, and word statistics"""
+    profile_id = current_user["profile"].id
+    
+    # Check if teacher has access to this student
+    has_access = db.query(GroupMember).join(Group).filter(
+        GroupMember.profile_id == student_id,
+        Group.teacher_id == profile_id
+    ).first()
+    
+    if not has_access:
+        raise HTTPException(status_code=403, detail="No access to this student")
+    
+    student = db.query(LearningCenterProfile).filter(
+        LearningCenterProfile.id == student_id
+    ).first()
+    
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    # Get student's group and course
+    group_member = db.query(GroupMember).join(Group).filter(
+        GroupMember.profile_id == student_id,
+        Group.teacher_id == profile_id
+    ).first()
+    
+    if not group_member or not group_member.group.course_id:
+        raise HTTPException(status_code=404, detail="Student course not found")
+    
+    course_id = group_member.group.course_id
+    
+    # Get all modules for the course
+    modules = db.query(Module).filter(
+        Module.course_id == course_id,
+        Module.is_active == True
+    ).order_by(Module.order_index).all()
+    
+    modules_data = []
+    
+    for module in modules:
+        # Get lessons for this module
+        lessons = db.query(Lesson).filter(
+            Lesson.module_id == module.id,
+            Lesson.is_active == True
+        ).order_by(Lesson.order_index).all()
+        
+        lessons_data = []
+        module_total_progress = 0
+        module_completed_lessons = 0
+        
+        for lesson in lessons:
+            # Get lesson progress
+            lesson_progress = db.query(Progress).filter(
+                Progress.profile_id == student_id,
+                Progress.lesson_id == lesson.id
+            ).first()
+            
+            lesson_percentage = lesson_progress.percentage if lesson_progress else 0
+            lesson_completed = lesson_progress.completed if lesson_progress else False
+            lesson_last_practiced = lesson_progress.last_practiced if lesson_progress else None
+            
+            if lesson_completed:
+                module_completed_lessons += 1
+            module_total_progress += lesson_percentage
+            
+            # Get words for this lesson
+            words = db.query(Word).filter(
+                Word.lesson_id == lesson.id,
+                Word.is_active == True
+            ).order_by(Word.order_index).all()
+            
+            words_data = []
+            
+            for word in words:
+                # Get word progress
+                word_progress = db.query(WordProgress).filter(
+                    WordProgress.profile_id == student_id,
+                    WordProgress.word_id == word.id
+                ).first()
+                
+                if word_progress:
+                    # Calculate success rate from last 7 attempts
+                    last_seven = word_progress.last_seven_attempts
+                    correct_in_seven = last_seven.count('1') if last_seven else 0
+                    total_in_seven = len(last_seven) if last_seven else 0
+                    
+                    word_data = {
+                        "id": word.id,
+                        "word": word.word,
+                        "meaning": word.meaning,
+                        "definition": word.definition,
+                        "example_sentence": word.example_sentence,
+                        "image_url": word.image_url,
+                        "audio_url": word.audio_url,
+                        "order_index": word.order_index,
+                        "stats": {
+                            "total_attempts": word_progress.total_attempts,
+                            "total_correct": word_progress.total_correct,
+                            "accuracy_rate": round((word_progress.total_correct / max(word_progress.total_attempts, 1)) * 100, 2),
+                            "last_seven_attempts": word_progress.last_seven_attempts,
+                            "recent_accuracy": round((correct_in_seven / max(total_in_seven, 1)) * 100, 2),
+                            "last_practiced": word_progress.last_practiced,
+                            "is_weak": '0' in (word_progress.last_seven_attempts or "")
+                        }
+                    }
+                else:
+                    word_data = {
+                        "id": word.id,
+                        "word": word.word,
+                        "meaning": word.meaning,
+                        "definition": word.definition,
+                        "example_sentence": word.example_sentence,
+                        "image_url": word.image_url,
+                        "audio_url": word.audio_url,
+                        "order_index": word.order_index,
+                        "stats": {
+                            "total_attempts": 0,
+                            "total_correct": 0,
+                            "accuracy_rate": 0,
+                            "last_seven_attempts": "",
+                            "recent_accuracy": 0,
+                            "last_practiced": None,
+                            "is_weak": False
+                        }
+                    }
+                
+                words_data.append(word_data)
+            
+            lesson_data = {
+                "id": lesson.id,
+                "title": lesson.title,
+                "description": lesson.description,
+                "order_index": lesson.order_index,
+                "progress": {
+                    "percentage": lesson_percentage,
+                    "completed": lesson_completed,
+                    "last_practiced": lesson_last_practiced
+                },
+                "words": words_data,
+                "word_stats": {
+                    "total_words": len(words_data),
+                    "weak_words_count": len([w for w in words_data if w["stats"]["is_weak"]]),
+                    "practiced_words": len([w for w in words_data if w["stats"]["total_attempts"] > 0]),
+                    "mastered_words": len([w for w in words_data if w["stats"]["accuracy_rate"] >= 80])
+                }
+            }
+            
+            lessons_data.append(lesson_data)
+        
+        # Calculate module progress percentage
+        module_percentage = round(module_total_progress / max(len(lessons), 1), 2)
+        
+        module_data = {
+            "id": module.id,
+            "title": module.title,
+            "description": module.description,
+            "order_index": module.order_index,
+            "progress": {
+                "percentage": module_percentage,
+                "completed_lessons": module_completed_lessons,
+                "total_lessons": len(lessons)
+            },
+            "lessons": lessons_data
+        }
+        
+        modules_data.append(module_data)
+    
+    # Calculate overall course progress
+    total_lessons = sum(len(m["lessons"]) for m in modules_data)
+    total_completed = sum(m["progress"]["completed_lessons"] for m in modules_data)
+    overall_percentage = round(sum(m["progress"]["percentage"] for m in modules_data) / max(len(modules_data), 1), 2)
+    
+    return APIResponse.success({
+        "student": {
+            "id": student.id,
+            "full_name": student.full_name,
+            "created_at": student.created_at
+        },
+        "course": {
+            "id": course_id,
+            "progress": {
+                "overall_percentage": overall_percentage,
+                "completed_lessons": total_completed,
+                "total_lessons": total_lessons
+            }
+        },
+        "modules": modules_data,
+        "summary": {
+            "total_modules": len(modules_data),
+            "total_lessons": total_lessons,
+            "completed_lessons": total_completed,
+            "total_words": sum(lesson["word_stats"]["total_words"] for module in modules_data for lesson in module["lessons"]),
+            "weak_words": sum(lesson["word_stats"]["weak_words_count"] for module in modules_data for lesson in module["lessons"]),
+            "practiced_words": sum(lesson["word_stats"]["practiced_words"] for module in modules_data for lesson in module["lessons"]),
+            "mastered_words": sum(lesson["word_stats"]["mastered_words"] for module in modules_data for lesson in module["lessons"])
+        }
+    })
+
+
 @router.patch("/password")
 def change_teacher_password(
         password_data: schemas.TeacherPasswordChangeRequest,
