@@ -446,6 +446,346 @@ def get_weekly_report(
     })
 
 
+@router.get("/students/{student_id}/modules")
+def get_student_modules(
+        student_id: int,
+        current_user: dict = Depends(get_teacher_user),
+        db: Session = Depends(get_db)
+):
+    """Get student's course modules with progress statistics"""
+    profile_id = current_user["profile"].id
+    
+    # Check if teacher has access to this student
+    has_access = db.query(GroupMember).join(Group).filter(
+        GroupMember.profile_id == student_id,
+        Group.teacher_id == profile_id
+    ).first()
+    
+    if not has_access:
+        raise HTTPException(status_code=403, detail="No access to this student")
+    
+    student = db.query(LearningCenterProfile).filter(
+        LearningCenterProfile.id == student_id
+    ).first()
+    
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    # Get student's course
+    group_member = db.query(GroupMember).join(Group).filter(
+        GroupMember.profile_id == student_id,
+        Group.teacher_id == profile_id
+    ).first()
+    
+    if not group_member or not group_member.group.course_id:
+        raise HTTPException(status_code=404, detail="Student course not found")
+    
+    course_id = group_member.group.course_id
+    
+    # Get course info
+    course = db.query(Course).filter(Course.id == course_id).first()
+    
+    # Get all modules for the course
+    modules = db.query(Module).filter(
+        Module.course_id == course_id,
+        Module.is_active == True
+    ).order_by(Module.order_index).all()
+    
+    modules_data = []
+    total_course_progress = 0
+    total_completed_lessons = 0
+    total_lessons = 0
+    
+    for module in modules:
+        # Get lesson count for this module
+        lesson_count = db.query(Lesson).filter(
+            Lesson.module_id == module.id,
+            Lesson.is_active == True
+        ).count()
+        
+        # Get progress for lessons in this module
+        module_progress = db.query(Progress).join(Lesson).filter(
+            Progress.profile_id == student_id,
+            Lesson.module_id == module.id,
+            Lesson.is_active == True
+        ).all()
+        
+        completed_lessons = len([p for p in module_progress if p.completed])
+        module_avg_percentage = sum(p.percentage for p in module_progress) / max(len(module_progress), 1) if module_progress else 0
+        
+        total_course_progress += module_avg_percentage
+        total_completed_lessons += completed_lessons
+        total_lessons += lesson_count
+        
+        module_data = {
+            "id": module.id,
+            "title": module.title,
+            "description": module.description,
+            "order_index": module.order_index,
+            "progress": {
+                "percentage": round(module_avg_percentage, 2),
+                "completed_lessons": completed_lessons,
+                "total_lessons": lesson_count
+            }
+        }
+        
+        modules_data.append(module_data)
+    
+    # Calculate overall course progress
+    overall_percentage = round(total_course_progress / max(len(modules_data), 1), 2)
+    
+    return APIResponse.success({
+        "student": {
+            "id": student.id,
+            "full_name": student.full_name,
+            "created_at": student.created_at
+        },
+        "course": {
+            "id": course_id,
+            "title": course.title,
+            "description": course.description,
+            "progress": {
+                "overall_percentage": overall_percentage,
+                "completed_lessons": total_completed_lessons,
+                "total_lessons": total_lessons
+            }
+        },
+        "modules": modules_data
+    })
+
+
+@router.get("/students/{student_id}/modules/{module_id}/lessons")
+def get_student_module_lessons(
+        student_id: int,
+        module_id: int,
+        current_user: dict = Depends(get_teacher_user),
+        db: Session = Depends(get_db)
+):
+    """Get lessons in a specific module with progress"""
+    profile_id = current_user["profile"].id
+    
+    # Check if teacher has access to this student
+    has_access = db.query(GroupMember).join(Group).filter(
+        GroupMember.profile_id == student_id,
+        Group.teacher_id == profile_id
+    ).first()
+    
+    if not has_access:
+        raise HTTPException(status_code=403, detail="No access to this student")
+    
+    # Verify module belongs to student's course
+    student_course = db.query(Course).join(Group).join(GroupMember).filter(
+        GroupMember.profile_id == student_id,
+        Group.teacher_id == profile_id
+    ).first()
+    
+    if not student_course:
+        raise HTTPException(status_code=404, detail="Student course not found")
+    
+    module = db.query(Module).filter(
+        Module.id == module_id,
+        Module.course_id == student_course.id,
+        Module.is_active == True
+    ).first()
+    
+    if not module:
+        raise HTTPException(status_code=404, detail="Module not found")
+    
+    # Get lessons for this module
+    lessons = db.query(Lesson).filter(
+        Lesson.module_id == module_id,
+        Lesson.is_active == True
+    ).order_by(Lesson.order_index).all()
+    
+    lessons_data = []
+    
+    for lesson in lessons:
+        # Get lesson progress
+        lesson_progress = db.query(Progress).filter(
+            Progress.profile_id == student_id,
+            Progress.lesson_id == lesson.id
+        ).first()
+        
+        lesson_percentage = lesson_progress.percentage if lesson_progress else 0
+        lesson_completed = lesson_progress.completed if lesson_progress else False
+        lesson_last_practiced = lesson_progress.last_practiced if lesson_progress else None
+        
+        # Get word count and weak words count for this lesson
+        word_count = db.query(Word).filter(
+            Word.lesson_id == lesson.id,
+            Word.is_active == True
+        ).count()
+        
+        weak_words_count = db.query(WordProgress).join(Word).filter(
+            Word.lesson_id == lesson.id,
+            WordProgress.profile_id == student_id,
+            WordProgress.last_seven_attempts.like('%0%'),
+            Word.is_active == True
+        ).count()
+        
+        practiced_words_count = db.query(WordProgress).join(Word).filter(
+            Word.lesson_id == lesson.id,
+            WordProgress.profile_id == student_id,
+            WordProgress.total_attempts > 0,
+            Word.is_active == True
+        ).count()
+        
+        lesson_data = {
+            "id": lesson.id,
+            "title": lesson.title,
+            "description": lesson.description,
+            "order_index": lesson.order_index,
+            "progress": {
+                "percentage": lesson_percentage,
+                "completed": lesson_completed,
+                "last_practiced": lesson_last_practiced
+            },
+            "word_stats": {
+                "total_words": word_count,
+                "weak_words_count": weak_words_count,
+                "practiced_words": practiced_words_count
+            }
+        }
+        
+        lessons_data.append(lesson_data)
+    
+    return APIResponse.success({
+        "module": {
+            "id": module.id,
+            "title": module.title,
+            "description": module.description,
+            "order_index": module.order_index
+        },
+        "lessons": lessons_data
+    })
+
+
+@router.get("/students/{student_id}/lessons/{lesson_id}/words")
+def get_student_lesson_words(
+        student_id: int,
+        lesson_id: int,
+        current_user: dict = Depends(get_teacher_user),
+        db: Session = Depends(get_db)
+):
+    """Get words in a specific lesson with detailed statistics"""
+    profile_id = current_user["profile"].id
+    
+    # Check if teacher has access to this student
+    has_access = db.query(GroupMember).join(Group).filter(
+        GroupMember.profile_id == student_id,
+        Group.teacher_id == profile_id
+    ).first()
+    
+    if not has_access:
+        raise HTTPException(status_code=403, detail="No access to this student")
+    
+    # Verify lesson belongs to student's course
+    lesson = db.query(Lesson).join(Module).join(Course).join(Group).join(GroupMember).filter(
+        GroupMember.profile_id == student_id,
+        Group.teacher_id == profile_id,
+        Lesson.id == lesson_id,
+        Lesson.is_active == True
+    ).first()
+    
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    
+    # Get words for this lesson
+    words = db.query(Word).filter(
+        Word.lesson_id == lesson_id,
+        Word.is_active == True
+    ).order_by(Word.order_index).all()
+    
+    words_data = []
+    
+    for word in words:
+        # Get word progress
+        word_progress = db.query(WordProgress).filter(
+            WordProgress.profile_id == student_id,
+            WordProgress.word_id == word.id
+        ).first()
+        
+        if word_progress:
+            # Calculate success rate from last 7 attempts
+            last_seven = word_progress.last_seven_attempts
+            correct_in_seven = last_seven.count('1') if last_seven else 0
+            total_in_seven = len(last_seven) if last_seven else 0
+            
+            word_data = {
+                "id": word.id,
+                "word": word.word,
+                "meaning": word.meaning,
+                "definition": word.definition,
+                "example_sentence": word.example_sentence,
+                "image_url": word.image_url,
+                "audio_url": word.audio_url,
+                "order_index": word.order_index,
+                "stats": {
+                    "total_attempts": word_progress.total_attempts,
+                    "total_correct": word_progress.total_correct,
+                    "accuracy_rate": round((word_progress.total_correct / max(word_progress.total_attempts, 1)) * 100, 2),
+                    "last_seven_attempts": word_progress.last_seven_attempts,
+                    "recent_accuracy": round((correct_in_seven / max(total_in_seven, 1)) * 100, 2),
+                    "last_practiced": word_progress.last_practiced,
+                    "is_weak": '0' in (word_progress.last_seven_attempts or "")
+                }
+            }
+        else:
+            word_data = {
+                "id": word.id,
+                "word": word.word,
+                "meaning": word.meaning,
+                "definition": word.definition,
+                "example_sentence": word.example_sentence,
+                "image_url": word.image_url,
+                "audio_url": word.audio_url,
+                "order_index": word.order_index,
+                "stats": {
+                    "total_attempts": 0,
+                    "total_correct": 0,
+                    "accuracy_rate": 0,
+                    "last_seven_attempts": "",
+                    "recent_accuracy": 0,
+                    "last_practiced": None,
+                    "is_weak": False
+                }
+            }
+        
+        words_data.append(word_data)
+    
+    # Calculate lesson stats
+    weak_words_count = len([w for w in words_data if w["stats"]["is_weak"]])
+    practiced_words = len([w for w in words_data if w["stats"]["total_attempts"] > 0])
+    mastered_words = len([w for w in words_data if w["stats"]["accuracy_rate"] >= 80])
+    
+    # Get lesson progress
+    lesson_progress = db.query(Progress).filter(
+        Progress.profile_id == student_id,
+        Progress.lesson_id == lesson_id
+    ).first()
+    
+    return APIResponse.success({
+        "lesson": {
+            "id": lesson.id,
+            "title": lesson.title,
+            "description": lesson.description,
+            "order_index": lesson.order_index,
+            "progress": {
+                "percentage": lesson_progress.percentage if lesson_progress else 0,
+                "completed": lesson_progress.completed if lesson_progress else False,
+                "last_practiced": lesson_progress.last_practiced if lesson_progress else None
+            }
+        },
+        "words": words_data,
+        "summary": {
+            "total_words": len(words_data),
+            "weak_words_count": weak_words_count,
+            "practiced_words": practiced_words,
+            "mastered_words": mastered_words
+        }
+    })
+
+
 @router.get("/students/{student_id}/detailed-progress")
 def get_student_detailed_progress(
         student_id: int,

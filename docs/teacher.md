@@ -252,6 +252,219 @@ Get detailed progress for a specific student
 }
 ```
 
+### GET /teacher/students/{student_id}/modules
+Get student's course modules with progress statistics (fast loading)
+
+**Request:** None
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "data": {
+    "student": {
+      "id": 123,
+      "full_name": "John Doe",
+      "created_at": "2024-01-15T10:30:00"
+    },
+    "course": {
+      "id": 45,
+      "title": "English Course A1",
+      "description": "Beginner English course",
+      "progress": {
+        "overall_percentage": 72.5,
+        "completed_lessons": 8,
+        "total_lessons": 12
+      }
+    },
+    "modules": [
+      {
+        "id": 10,
+        "title": "Basic Vocabulary",
+        "description": "Introduction to basic English words",
+        "order_index": 1,
+        "progress": {
+          "percentage": 85.0,
+          "completed_lessons": 3,
+          "total_lessons": 4
+        }
+      },
+      {
+        "id": 11,
+        "title": "Grammar Basics",
+        "description": "Basic grammar rules",
+        "order_index": 2,
+        "progress": {
+          "percentage": 60.0,
+          "completed_lessons": 2,
+          "total_lessons": 5
+        }
+      }
+    ]
+  }
+}
+```
+
+### GET /teacher/students/{student_id}/modules/{module_id}/lessons
+Get lessons in a specific module with progress and word statistics
+
+**Request:** None
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "data": {
+    "module": {
+      "id": 10,
+      "title": "Basic Vocabulary",
+      "description": "Introduction to basic English words",
+      "order_index": 1
+    },
+    "lessons": [
+      {
+        "id": 25,
+        "title": "Animals",
+        "description": "Learn animal names",
+        "order_index": 1,
+        "progress": {
+          "percentage": 90,
+          "completed": true,
+          "last_practiced": "2024-01-20T14:30:00"
+        },
+        "word_stats": {
+          "total_words": 15,
+          "weak_words_count": 3,
+          "practiced_words": 12
+        }
+      },
+      {
+        "id": 26,
+        "title": "Colors",
+        "description": "Learn color names",
+        "order_index": 2,
+        "progress": {
+          "percentage": 75,
+          "completed": false,
+          "last_practiced": "2024-01-21T10:15:00"
+        },
+        "word_stats": {
+          "total_words": 10,
+          "weak_words_count": 2,
+          "practiced_words": 8
+        }
+      }
+    ]
+  }
+}
+```
+
+### GET /teacher/students/{student_id}/lessons/{lesson_id}/words
+Get words in a specific lesson with detailed statistics and last 7 attempts
+
+**Request:** None
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "data": {
+    "lesson": {
+      "id": 25,
+      "title": "Animals",
+      "description": "Learn animal names",
+      "order_index": 1,
+      "progress": {
+        "percentage": 90,
+        "completed": true,
+        "last_practiced": "2024-01-20T14:30:00"
+      }
+    },
+    "words": [
+      {
+        "id": 100,
+        "word": "cat",
+        "meaning": "A small furry animal",
+        "definition": "A domesticated carnivorous mammal",
+        "example_sentence": "The cat is sleeping on the sofa",
+        "image_url": "https://example.com/cat.jpg",
+        "audio_url": "https://example.com/cat.mp3",
+        "order_index": 1,
+        "stats": {
+          "total_attempts": 15,
+          "total_correct": 12,
+          "accuracy_rate": 80.0,
+          "last_seven_attempts": "1110101",
+          "recent_accuracy": 71.43,
+          "last_practiced": "2024-01-20T14:30:00",
+          "is_weak": true
+        }
+      },
+      {
+        "id": 101,
+        "word": "dog",
+        "meaning": "A loyal pet animal",
+        "definition": "A domesticated carnivorous mammal",
+        "example_sentence": "The dog is playing in the garden",
+        "image_url": "https://example.com/dog.jpg",
+        "audio_url": "https://example.com/dog.mp3",
+        "order_index": 2,
+        "stats": {
+          "total_attempts": 8,
+          "total_correct": 8,
+          "accuracy_rate": 100.0,
+          "last_seven_attempts": "1111111",
+          "recent_accuracy": 100.0,
+          "last_practiced": "2024-01-19T16:20:00",
+          "is_weak": false
+        }
+      }
+    ],
+    "summary": {
+      "total_words": 15,
+      "weak_words_count": 3,
+      "practiced_words": 12,
+      "mastered_words": 9
+    }
+  }
+}
+```
+
+**Word Statistics Fields:**
+- `total_attempts`: Total practice attempts for this word
+- `total_correct`: Total correct answers
+- `accuracy_rate`: Overall accuracy percentage
+- `last_seven_attempts`: String showing last 7 attempts ("1" = correct, "0" = incorrect)
+- `recent_accuracy`: Accuracy rate from last 7 attempts
+- `last_practiced`: Last practice timestamp
+- `is_weak`: Boolean indicating if word has recent mistakes (contains "0" in last 7 attempts)
+
+**Common Error Responses for All Endpoints:**
+
+**Response (Error - No Access):**
+```json
+{
+  "success": false,
+  "detail": "No access to this student"
+}
+```
+
+**Response (Error - Student Not Found):**
+```json
+{
+  "success": false,
+  "detail": "Student not found"
+}
+```
+
+**Response (Error - Module/Lesson Not Found):**
+```json
+{
+  "success": false,
+  "detail": "Module not found"
+}
+```
+
 ### GET /teacher/students/struggling
 Get students who need attention (low progress or inactive)
 
@@ -353,13 +566,20 @@ Get weekly activity report for teacher's groups
 ### Student Progress Object
 ```json
 {
-  "completed_lessons": 5,        // Number of lessons completed (100%)
-  "total_lessons": 10,          // Total lessons attempted
-  "average_percentage": 78.5,   // Average completion percentage across all lessons
-  "total_coins": 150,           // Total coins earned
-  "total_points": 150           // Total points (same as total_coins)
+  "completed_lessons": 5,
+  "total_lessons": 10,
+  "average_percentage": 78.5,
+  "total_coins": 150,
+  "total_points": 150
 }
 ```
+
+**Field Descriptions:**
+- `completed_lessons`: Number of lessons completed (100%)
+- `total_lessons`: Total lessons attempted
+- `average_percentage`: Average completion percentage across all lessons
+- `total_coins`: Total coins earned
+- `total_points`: Total points (same as total_coins)
 
 ### Ranking System
 - Students are automatically ranked by `total_points` in descending order
