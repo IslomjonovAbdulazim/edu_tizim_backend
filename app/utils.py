@@ -172,8 +172,12 @@ def format_phone(phone: str) -> str:
     # Remove all non-digits except +
     phone = re.sub(r'[^\d+]', '', phone)
     if not phone.startswith('+'):
-        # Assume Uzbekistan if no country code
-        phone = '+998' + phone
+        # Check if it already starts with 998 (Uzbekistan code)
+        if phone.startswith('998'):
+            phone = '+' + phone
+        else:
+            # Add Uzbekistan country code
+            phone = '+998' + phone
     return phone
 
 
@@ -188,6 +192,37 @@ def validate_uzbek_phone(phone: str) -> bool:
     # Uzbek numbers: +998 followed by 9 digits
     pattern = r'^\+998\d{9}$'
     return bool(re.match(pattern, phone))
+
+
+def format_phone_display(phone: str) -> str:
+    """Format phone number for display: +998901234567 -> (90) 123-45-67"""
+    # Remove non-digits except +
+    clean_phone = re.sub(r'[^\d+]', '', phone)
+    
+    if clean_phone.startswith('+998'):
+        # Handle +998901234567 (13 chars) or +998998990330919 (16 chars)
+        if len(clean_phone) == 13:
+            digits = clean_phone[4:]  # 9 digits
+        elif len(clean_phone) == 16:
+            # Take last 9 digits for display
+            digits = clean_phone[-9:]
+        else:
+            return phone
+        return f"({digits[:2]}) {digits[2:5]}-{digits[5:7]}-{digits[7:9]}"
+    elif clean_phone.startswith('998'):
+        # Handle 998901234567 (12 digits) or 998998990330919 (15 digits)
+        if len(clean_phone) == 12:
+            digits = clean_phone[3:]  # 9 digits
+        elif len(clean_phone) == 15:
+            digits = clean_phone[-9:]  # Last 9 digits
+        else:
+            return phone
+        return f"({digits[:2]}) {digits[2:5]}-{digits[5:7]}-{digits[7:9]}"
+    elif len(clean_phone) == 9 and clean_phone.isdigit():
+        # Handle 901234567 format (missing +998)
+        return f"({clean_phone[:2]}) {clean_phone[2:5]}-{clean_phone[5:7]}-{clean_phone[7:9]}"
+    
+    return phone
 
 
 class APIResponse:

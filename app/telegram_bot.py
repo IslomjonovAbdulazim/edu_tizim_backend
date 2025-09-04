@@ -9,7 +9,7 @@ from sqlalchemy import and_
 
 from .database import SessionLocal, RedisService
 from .models import User, TelegramOTP, UserRole
-from .utils import format_phone, validate_phone, generate_verification_code
+from .utils import format_phone, validate_phone, generate_verification_code, format_phone_display
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -64,6 +64,11 @@ class TelegramBot:
         # Clean phone number format
         phone = format_phone(phone)
         
+        # Validate phone number
+        if not validate_phone(phone) or len(phone) != 13:
+            await update.message.reply_text("❌ Telefon raqami formati noto'g'ri. Qaytadan urinib ko'ring.")
+            return
+        
         db = SessionLocal()
         try:
             # Check if user exists with this phone
@@ -73,8 +78,6 @@ class TelegramBot:
                 # Update telegram_id for existing user
                 user.telegram_id = telegram_id
                 db.commit()
-                
-                await update.message.reply_text(f"✅ Phone number {phone} linked!")
                 
                 # Auto-generate and send code
                 await self.generate_and_send_code(update, phone, telegram_id)
@@ -88,8 +91,6 @@ class TelegramBot:
                 )
                 db.add(new_user)
                 db.commit()
-                
-                await update.message.reply_text(f"✅ New account created with phone {phone}!")
                 
                 # Auto-generate and send code for new user
                 await self.generate_and_send_code(update, phone, telegram_id)
@@ -107,7 +108,7 @@ class TelegramBot:
         if text.startswith('+') or text.isdigit():
             phone = format_phone(text)
             
-            if validate_phone(phone):
+            if validate_phone(phone) and len(phone) == 13:
                 db = SessionLocal()
                 try:
                     user = db.query(User).filter(User.phone == phone).first()
@@ -115,7 +116,6 @@ class TelegramBot:
                     if user:
                         user.telegram_id = telegram_id
                         db.commit()
-                        await update.message.reply_text(f"✅ Phone number {phone} linked!")
                         await self.generate_and_send_code(update, phone, telegram_id)
                     else:
                         new_user = User(
@@ -126,7 +126,6 @@ class TelegramBot:
                         )
                         db.add(new_user)
                         db.commit()
-                        await update.message.reply_text(f"✅ New account created with phone {phone}!")
                         await self.generate_and_send_code(update, phone, telegram_id)
                 except Exception as e:
                     logger.error(f"Error handling phone text: {e}")
@@ -165,8 +164,12 @@ class TelegramBot:
             
             # If code exists and has more than 60 seconds remaining, reuse it
             if existing_code and ttl > 60:
+                formatted_phone = format_phone_display(phone)
                 await update.message.reply_text(
-                    f"Telefon raqamingiz: {phone}\nTasdiqlash kodingiz: {existing_code}\nAmal qilish muddati: {ttl} soniya"
+                    f"📱 Telefon raqamingiz: *{formatted_phone}*\n"
+                    f"🔐 Tasdiqlash kodingiz: *{existing_code}*\n"
+                    f"⏱️ Amal qilish muddati: *{ttl} soniya*",
+                    parse_mode='Markdown'
                 )
                 return
             
@@ -175,8 +178,12 @@ class TelegramBot:
             
             # Store in Redis with 5 minutes expiration
             if RedisService.store_verification_code(phone, new_code, 300):
+                formatted_phone = format_phone_display(phone)
                 await update.message.reply_text(
-                    f"Telefon raqamingiz: {phone}\nTasdiqlash kodingiz: {new_code}\nAmal qilish muddati: 300 soniya"
+                    f"📱 Telefon raqamingiz: *{formatted_phone}*\n"
+                    f"🔐 Tasdiqlash kodingiz: *{new_code}*\n"
+                    f"⏱️ Amal qilish muddati: *300 soniya*",
+                    parse_mode='Markdown'
                 )
             else:
                 await update.message.reply_text("❌ Tasdiqlash kodini yaratib bo'lmadi. Qaytadan urinib ko'ring.")
