@@ -178,3 +178,124 @@ def get_student_info(current_user: dict = Depends(get_student_user), db: Session
             }
         }
     })
+
+
+@router.get("/course/{course_id}/progress")
+def get_course_progress(
+    course_id: int,
+    current_user: dict = Depends(get_student_user),
+    db: Session = Depends(get_db)
+):
+    """Get course progress with modules and lessons for student"""
+    
+    user = current_user["user"]
+    
+    # Find student's profile for the course's center
+    course = db.query(Course).filter(
+        Course.id == course_id,
+        Course.is_active == True
+    ).first()
+    
+    if not course:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Course not found"
+        )
+    
+    # Find student's profile in this course's learning center
+    profile = db.query(LearningCenterProfile).filter(
+        LearningCenterProfile.user_id == user.id,
+        LearningCenterProfile.center_id == course.center_id,
+        LearningCenterProfile.is_active == True
+    ).first()
+    
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Student not enrolled in this course's learning center"
+        )
+    
+    # Get course modules with lessons
+    modules = db.query(Module).filter(
+        Module.course_id == course_id,
+        Module.is_active == True
+    ).order_by(Module.order_index).all()
+    
+    course_data = {
+        "id": course.id,
+        "title": course.title,
+        "description": course.description,
+        "modules": [],
+        "overall_progress": {
+            "total_lessons": 0,
+            "completed_lessons": 0,
+            "completion_rate": 0
+        }
+    }
+    
+    total_lessons = 0
+    completed_lessons = 0
+    
+    for module in modules:
+        # Get lessons for this module
+        lessons = db.query(Lesson).filter(
+            Lesson.module_id == module.id,
+            Lesson.is_active == True
+        ).order_by(Lesson.order_index).all()
+        
+        module_data = {
+            "id": module.id,
+            "title": module.title,
+            "description": module.description,
+            "order_index": module.order_index,
+            "lessons": [],
+            "progress": {
+                "total_lessons": len(lessons),
+                "completed_lessons": 0,
+                "completion_rate": 0
+            }
+        }
+        
+        module_completed = 0
+        
+        for lesson in lessons:
+            # Get progress for this lesson
+            progress = db.query(Progress).filter(
+                Progress.profile_id == profile.id,
+                Progress.lesson_id == lesson.id
+            ).first()
+            
+            lesson_data = {
+                "id": lesson.id,
+                "title": lesson.title,
+                "description": lesson.description,
+                "order_index": lesson.order_index,
+                "progress": {
+                    "percentage": progress.percentage if progress else 0,
+                    "completed": progress.completed if progress else False,
+                    "last_practiced": progress.last_practiced if progress else None
+                }
+            }
+            
+            module_data["lessons"].append(lesson_data)
+            
+            if progress and progress.completed:
+                module_completed += 1
+                completed_lessons += 1
+            
+            total_lessons += 1
+        
+        # Calculate module completion rate
+        module_data["progress"]["completed_lessons"] = module_completed
+        if len(lessons) > 0:
+            module_data["progress"]["completion_rate"] = round((module_completed / len(lessons)) * 100, 1)
+        
+        course_data["modules"].append(module_data)
+    
+    # Calculate overall course completion rate
+    course_data["overall_progress"]["total_lessons"] = total_lessons
+    course_data["overall_progress"]["completed_lessons"] = completed_lessons
+    if total_lessons > 0:
+        course_data["overall_progress"]["completion_rate"] = round((completed_lessons / total_lessons) * 100, 1)
+    
+    return APIResponse.success(course_data)
