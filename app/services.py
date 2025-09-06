@@ -138,15 +138,17 @@ class ContentService:
 class ProgressService:
     @staticmethod
     def update_lesson_progress(db: Session, profile_id: int, lesson_id: int, percentage: int):
-        """Update lesson progress and award coins"""
+        """Update lesson progress and award coins based on percentage improvement"""
         progress = db.query(Progress).filter(
             Progress.profile_id == profile_id,
             Progress.lesson_id == lesson_id
         ).first()
 
-        was_completed = progress.completed if progress else False
+        old_percentage = progress.percentage if progress else 0
+        coins_earned = 0
 
         if not progress:
+            # First time - award coins equal to percentage achieved
             progress = Progress(
                 profile_id=profile_id,
                 lesson_id=lesson_id,
@@ -154,17 +156,21 @@ class ProgressService:
                 completed=percentage >= 100
             )
             db.add(progress)
+            coins_earned = percentage
         else:
-            progress.percentage = max(progress.percentage, percentage)  # Only increase
-            progress.completed = progress.percentage >= 100
-            progress.last_practiced = func.now()
+            # Only award coins if percentage increased
+            if percentage > progress.percentage:
+                coins_earned = percentage - progress.percentage
+                progress.percentage = percentage
+                progress.completed = progress.percentage >= 100
+                progress.last_practiced = func.now()
 
-        # Award coins for first completion
-        if progress.percentage >= 100 and not was_completed:
+        # Award coins for improvement (if any)
+        if coins_earned > 0:
             coin = Coin(
                 profile_id=profile_id,
-                amount=10,
-                source="lesson_complete",
+                amount=coins_earned,
+                source="lesson_progress",
                 source_id=lesson_id
             )
             db.add(coin)
@@ -177,6 +183,8 @@ class ProgressService:
         ).first()
         if profile:
             RedisService.clear_pattern(f"leaderboard:center:{profile.center_id}*")
+        
+        return coins_earned
 
     @staticmethod
     def update_word_progress(db: Session, profile_id: int, word_id: int, correct: bool):

@@ -254,14 +254,18 @@ def update_lesson_progress(
     if not current_user["profile"]:
         raise HTTPException(status_code=403, detail="No active profile found")
 
-    ProgressService.update_lesson_progress(
+    coins_earned = ProgressService.update_lesson_progress(
         db,
         current_user["profile"].id,
         progress_data.lesson_id,
         progress_data.percentage
     )
 
-    return APIResponse.success({"message": "Progress updated successfully"})
+    return APIResponse.success({
+        "message": "Progress updated successfully",
+        "coins_earned": coins_earned,
+        "lesson_completed": progress_data.percentage >= 100
+    })
 
 
 @router.post("/progress/word", dependencies=[Depends(get_current_user)])
