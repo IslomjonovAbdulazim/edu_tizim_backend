@@ -358,3 +358,125 @@ def get_center_leaderboard(
         },
         "total_students": len(leaderboard_data)
     })
+
+
+@router.get("/lesson/{lesson_id}/words")
+def get_lesson_words(
+    lesson_id: int,
+    current_user: dict = Depends(get_student_user),
+    db: Session = Depends(get_db)
+):
+    """Get all words in a lesson with student progress and status levels"""
+    
+    user = current_user["user"]
+    
+    # Get lesson and verify access
+    lesson = db.query(Lesson).filter(
+        Lesson.id == lesson_id,
+        Lesson.is_active == True
+    ).first()
+    
+    if not lesson:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Lesson not found"
+        )
+    
+    # Get course and verify student enrollment
+    module = db.query(Module).filter(Module.id == lesson.module_id).first()
+    course = db.query(Course).filter(Course.id == module.course_id).first()
+    
+    profile = db.query(LearningCenterProfile).filter(
+        LearningCenterProfile.user_id == user.id,
+        LearningCenterProfile.center_id == course.center_id,
+        LearningCenterProfile.is_active == True
+    ).first()
+    
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Student not enrolled in this lesson's learning center"
+        )
+    
+    # Get words in this lesson
+    words = db.query(Word).filter(
+        Word.lesson_id == lesson_id,
+        Word.is_active == True
+    ).order_by(Word.order_index).all()
+    
+    def calculate_word_status(last_seven_attempts):
+        """Calculate word status level based on last 7 attempts"""
+        if not last_seven_attempts:
+            return 0  # New - never attempted
+        
+        # Count correct attempts (1s) in last 7 attempts
+        correct_count = last_seven_attempts.count('1')
+        
+        if correct_count >= 5:  # 5+ correct out of 7
+            return 2  # Mastered
+        elif correct_count >= 2:  # 2-4 correct out of 7
+            return 1  # Learning
+        else:  # 0-1 correct out of 7
+            return 0  # New/Needs practice
+    
+    words_data = []
+    
+    for word in words:
+        # Get word progress for this student
+        word_progress = db.query(WordProgress).filter(
+            WordProgress.profile_id == profile.id,
+            WordProgress.word_id == word.id
+        ).first()
+        
+        # Calculate status level
+        last_seven = word_progress.last_seven_attempts if word_progress else ""
+        status_level = calculate_word_status(last_seven)
+        
+        # Status level descriptions
+        status_descriptions = {
+            0: "New",
+            1: "Learning", 
+            2: "Mastered"
+        }
+        
+        word_data = {
+            "id": word.id,
+            "word": word.word,
+            "meaning": word.meaning,
+            "definition": word.definition,
+            "example_sentence": word.example_sentence,
+            "image_url": word.image_url,
+            "audio_url": word.audio_url,
+            "order_index": word.order_index,
+            "progress": {
+                "status_level": status_level,
+                "status_description": status_descriptions[status_level],
+                "last_seven_attempts": last_seven,
+                "total_correct": word_progress.total_correct if word_progress else 0,
+                "total_attempts": word_progress.total_attempts if word_progress else 0,
+                "accuracy_rate": round((word_progress.total_correct / word_progress.total_attempts * 100), 1) if word_progress and word_progress.total_attempts > 0 else 0,
+                "last_practiced": word_progress.last_practiced if word_progress else None
+            }
+        }
+        
+        words_data.append(word_data)
+    
+    # Calculate lesson statistics
+    total_words = len(words_data)
+    new_words = len([w for w in words_data if w["progress"]["status_level"] == 0])
+    learning_words = len([w for w in words_data if w["progress"]["status_level"] == 1])
+    mastered_words = len([w for w in words_data if w["progress"]["status_level"] == 2])
+    
+    return APIResponse.success({
+        "lesson_id": lesson.id,
+        "lesson_title": lesson.title,
+        "lesson_description": lesson.description,
+        "words": words_data,
+        "statistics": {
+            "total_words": total_words,
+            "new_words": new_words,
+            "learning_words": learning_words,
+            "mastered_words": mastered_words,
+            "mastery_rate": round((mastered_words / total_words * 100), 1) if total_words > 0 else 0
+        }
+    })
