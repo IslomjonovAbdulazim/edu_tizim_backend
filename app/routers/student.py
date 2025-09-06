@@ -275,3 +275,86 @@ def get_course_progress(
         "total_lessons": total_lessons,
         "completed_lessons": completed_lessons
     })
+
+
+@router.get("/center/{center_id}/leaderboard")
+def get_center_leaderboard(
+    center_id: int,
+    current_user: dict = Depends(get_student_user),
+    db: Session = Depends(get_db)
+):
+    """Get leaderboard for students in a learning center"""
+    
+    user = current_user["user"]
+    
+    # Verify student is enrolled in this learning center
+    student_profile = db.query(LearningCenterProfile).filter(
+        LearningCenterProfile.user_id == user.id,
+        LearningCenterProfile.center_id == center_id,
+        LearningCenterProfile.is_active == True
+    ).first()
+    
+    if not student_profile:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Student not enrolled in this learning center"
+        )
+    
+    # Get all student profiles in this learning center
+    all_profiles = db.query(LearningCenterProfile).filter(
+        LearningCenterProfile.center_id == center_id,
+        LearningCenterProfile.role_in_center == UserRole.STUDENT,
+        LearningCenterProfile.is_active == True
+    ).all()
+    
+    leaderboard_data = []
+    
+    for profile in all_profiles:
+        # Calculate total coins for this student
+        total_coins = db.query(func.sum(Coin.amount)).filter(
+            Coin.profile_id == profile.id
+        ).scalar() or 0
+        
+        # Calculate completed lessons count
+        completed_lessons = db.query(Progress).filter(
+            Progress.profile_id == profile.id,
+            Progress.completed == True
+        ).count()
+        
+        # Calculate total lessons count
+        total_lessons = db.query(Progress).filter(
+            Progress.profile_id == profile.id
+        ).count()
+        
+        leaderboard_data.append({
+            "profile_id": profile.id,
+            "student_name": profile.full_name,
+            "total_coins": int(total_coins),
+            "completed_lessons": completed_lessons,
+            "total_lessons": total_lessons,
+            "completion_rate": round((completed_lessons / total_lessons * 100), 1) if total_lessons > 0 else 0,
+            "is_current_user": profile.id == student_profile.id
+        })
+    
+    # Sort by coins (primary) and completion rate (secondary)
+    leaderboard_data.sort(key=lambda x: (x["total_coins"], x["completion_rate"]), reverse=True)
+    
+    # Add ranking
+    for idx, student in enumerate(leaderboard_data):
+        student["rank"] = idx + 1
+    
+    # Find current user's rank
+    current_user_rank = next((s["rank"] for s in leaderboard_data if s["is_current_user"]), None)
+    current_user_data = next((s for s in leaderboard_data if s["is_current_user"]), None)
+    
+    return APIResponse.success({
+        "center_id": center_id,
+        "leaderboard": leaderboard_data,
+        "current_user": {
+            "rank": current_user_rank,
+            "total_coins": current_user_data["total_coins"] if current_user_data else 0,
+            "completed_lessons": current_user_data["completed_lessons"] if current_user_data else 0,
+            "completion_rate": current_user_data["completion_rate"] if current_user_data else 0
+        },
+        "total_students": len(leaderboard_data)
+    })
