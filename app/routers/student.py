@@ -221,18 +221,7 @@ def get_course_progress(
         Module.is_active == True
     ).order_by(Module.order_index).all()
     
-    course_data = {
-        "id": course.id,
-        "title": course.title,
-        "description": course.description,
-        "modules": [],
-        "overall_progress": {
-            "total_lessons": 0,
-            "completed_lessons": 0,
-            "completion_rate": 0
-        }
-    }
-    
+    modules_data = []
     total_lessons = 0
     completed_lessons = 0
     
@@ -243,19 +232,7 @@ def get_course_progress(
             Lesson.is_active == True
         ).order_by(Lesson.order_index).all()
         
-        module_data = {
-            "id": module.id,
-            "title": module.title,
-            "description": module.description,
-            "order_index": module.order_index,
-            "lessons": [],
-            "progress": {
-                "total_lessons": len(lessons),
-                "completed_lessons": 0,
-                "completion_rate": 0
-            }
-        }
-        
+        lessons_data = []
         module_completed = 0
         
         for lesson in lessons:
@@ -268,16 +245,12 @@ def get_course_progress(
             lesson_data = {
                 "id": lesson.id,
                 "title": lesson.title,
-                "description": lesson.description,
-                "order_index": lesson.order_index,
-                "progress": {
-                    "percentage": progress.percentage if progress else 0,
-                    "completed": progress.completed if progress else False,
-                    "last_practiced": progress.last_practiced if progress else None
-                }
+                "percentage": progress.percentage if progress else 0,
+                "completed": progress.completed if progress else False,
+                "last_practiced": progress.last_practiced if progress else None
             }
             
-            module_data["lessons"].append(lesson_data)
+            lessons_data.append(lesson_data)
             
             if progress and progress.completed:
                 module_completed += 1
@@ -285,17 +258,20 @@ def get_course_progress(
             
             total_lessons += 1
         
-        # Calculate module completion rate
-        module_data["progress"]["completed_lessons"] = module_completed
-        if len(lessons) > 0:
-            module_data["progress"]["completion_rate"] = round((module_completed / len(lessons)) * 100, 1)
+        module_data = {
+            "id": module.id,
+            "title": module.title,
+            "lessons": lessons_data,
+            "completed_lessons": module_completed,
+            "total_lessons": len(lessons)
+        }
         
-        course_data["modules"].append(module_data)
+        modules_data.append(module_data)
     
-    # Calculate overall course completion rate
-    course_data["overall_progress"]["total_lessons"] = total_lessons
-    course_data["overall_progress"]["completed_lessons"] = completed_lessons
-    if total_lessons > 0:
-        course_data["overall_progress"]["completion_rate"] = round((completed_lessons / total_lessons) * 100, 1)
-    
-    return APIResponse.success(course_data)
+    return APIResponse.success({
+        "course_id": course.id,
+        "course_title": course.title,
+        "modules": modules_data,
+        "total_lessons": total_lessons,
+        "completed_lessons": completed_lessons
+    })
