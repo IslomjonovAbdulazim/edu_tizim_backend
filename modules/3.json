@@ -1,0 +1,197 @@
+{
+  "title": "Numbers, Time & Days",
+  "description": "Learn numbers, telling time, and days of the week",
+  "order_index": 3,
+  "lessons": [
+    {
+      "title": "Numbers 1-20",
+      "description": "Learn numbers from one to twenty",
+      "order_index": 1,
+      "words": [
+        {"word": "eleven", "meaning": "o'n bir", "definition": "The number 11", "example_sentence": "I wake up at eleven o'clock.", "order_index": 1},
+        {"word": "twelve", "meaning": "o'n ikki", "definition": "The number 12", "example_sentence": "There are twelve months in a year.", "order_index": 2},
+        {"word": "thirteen", "meaning": "o'n uch", "definition": "The number 13", "example_sentence": "My sister is thirteen years old.", "order_index": 3},
+        {"word": "fourteen", "meaning": "o'n to'rt", "definition": "The number 14", "example_sentence": "I have fourteen books.", "order_index": 4},
+        {"word": "fifteen", "meaning": "o'n besh", "definition": "The number 15", "example_sentence": "The class has fifteen students.", "order_index": 5},
+        {"word": "sixteen", "meaning": "o'n olti", "definition": "The number 16", "example_sentence": "She turned sixteen last month.", "order_index": 6},
+        {"word": "seventeen", "meaning": "o'n yetti", "definition": "The number 17", "example_sentence": "We live at house number seventeen.", "order_index": 7},
+        {"word": "eighteen", "meaning": "o'n sakkiz", "definition": "The number 18", "example_sentence": "I graduate when I'm eighteen.", "order_index": 8},
+        {"word": "nineteen", "meaning": "o'n to'qqiz", "definition": "The number 19", "example_sentence": "The store closes at nineteen hundred.", "order_index": 9},
+        {"word": "twenty", "meaning": "yigirma", "definition": "The number 20", "example_sentence": "I have twenty dollars.", "order_index": 10},
+        {"word": "hundred", "meaning": "yuz", "definition": "The number 100", "example_sentence": "One hundred people came to the party.", "order_index": 11},
+        {"word": "thousand", "meaning": "ming", "definition": "The number 1000", "example_sentence": "The car costs five thousand dollars.", "order_index": 12}
+      ]
+    },
+    {
+      "title": "What Time Is It?",
+      "description": "Learn to tell and ask about time",
+      "order_index": 2,
+      "words": [
+        {"word": "time", "meaning": "vaqt", "definition": "Hours and minutes", "example_sentence": "What time is it now?", "order_index": 1},
+        {"word": "clock", "meaning": "soat", "definition": "Device that shows time", "example_sentence": "Look at the clock on the wall.", "order_index": 2},
+        {"word": "hour", "meaning": "soat", "definition": "60 minutes", "example_sentence": "The meeting lasts one hour.", "order_index": 3},
+        {"word": "minute", "meaning": "daqiqa", "definition": "60 seconds", "example_sentence": "Please wait five minutes.", "order_index": 4},
+        {"word": "second", "meaning": "soniya", "definition": "Very short time unit", "example_sentence": "The race was won by one second.", "order_index": 5},
+        {"word": "o'clock", "meaning": "soat", "definition": "Exact hour time", "example_sentence": "It's three o'clock now.", "order_index": 6},
+        {"word": "half", "meaning": "yarim", "definition": "30 minutes past the hour", "example_sentence": "It's half past two.", "order_index": 7},
+        {"word": "quarter", "meaning": "chorak", "definition": "15 minutes", "example_sentence": "It's quarter to five.", "order_index": 8},
+        {"word": "past", "meaning": "o'tgan", "definition": "After the hour", "example_sentence": "It's ten past three.", "order_index": 9},
+        {"word": "to", "meaning": "gacha", "definition": "Before the hour", "example_sentence": "It's twenty to four.", "order_index": 10},
+        {"word": "watch", "meaning": "soat (qo'lda)", "definition": "Small clock worn on wrist", "example_sentence": "My watch shows the correct time.", "order_index": 11},
+        {"word": "alarm", "meaning": "signal", "definition": "Sound that wakes you up", "example_sentence": "The alarm rings at 7 AM.", "order_index": 12}
+      ]
+    },
+    {
+      "title": "Days of the Week",
+      "description": "Learn the seven days of the week",
+      "order_index": 3,
+      "words": [
+        {"word": "Monday", "meaning": "dushanba", "definition": "First day of work week", "example_sentence": "I don't like Monday mornings.", "order_index": 1},
+        {"word": "Tuesday", "meaning": "seshanba", "definition": "Second day of work week", "example_sentence": "We have a meeting on Tuesday.", "order_index": 2},
+        {"word": "Wednesday", "meaning": "chorshanba", "definition": "Middle day of work week", "example_sentence": "Wednesday is in the middle of the week.", "order_index": 3},
+        {"word": "Thursday", "meaning": "payshanba", "definition": "Fourth day of work week", "example_sentence": "I go shopping every Thursday.", "order_index": 4},
+        {"word": "Friday", "meaning": "juma", "definition": "Last day of work week", "example_sentence": "Friday is my favorite day.", "order_index": 5},
+        {"word": "Saturday", "meaning": "shanba", "definition": "First day of weekend", "example_sentence": "I sleep late on Saturday.", "order_index": 6},
+        {"word": "Sunday", "meaning": "yakshanba", "definition": "Last day of weekend", "example_sentence": "Sunday is family day.", "order_index": 7},
+        {"word": "week", "meaning": "hafta", "definition": "Seven days period", "example_sentence": "There are seven days in a week.", "order_index": 8},
+        {"word": "weekday", "meaning": "ish kunlari", "definition": "Monday to Friday", "example_sentence": "I work on weekdays only.", "order_index": 9},
+        {"word": "weekend", "meaning": "dam olish kunlari", "definition": "Saturday and Sunday", "example_sentence": "I relax on the weekend.", "order_index": 10},
+        {"word": "day", "meaning": "kun", "definition": "24 hour period", "example_sentence": "Today is a beautiful day.", "order_index": 11},
+        {"word": "yesterday", "meaning": "kecha", "definition": "The day before today", "example_sentence": "I saw him yesterday.", "order_index": 12}
+      ]
+    },
+    {
+      "title": "Months of the Year",
+      "description": "Learn all twelve months",
+      "order_index": 4,
+      "words": [
+        {"word": "January", "meaning": "yanvar", "definition": "First month of year", "example_sentence": "January is very cold.", "order_index": 1},
+        {"word": "February", "meaning": "fevral", "definition": "Second month of year", "example_sentence": "February has 28 days.", "order_index": 2},
+        {"word": "March", "meaning": "mart", "definition": "Third month of year", "example_sentence": "Spring begins in March.", "order_index": 3},
+        {"word": "April", "meaning": "aprel", "definition": "Fourth month of year", "example_sentence": "It rains a lot in April.", "order_index": 4},
+        {"word": "May", "meaning": "may", "definition": "Fifth month of year", "example_sentence": "Flowers bloom in May.", "order_index": 5},
+        {"word": "June", "meaning": "iyun", "definition": "Sixth month of year", "example_sentence": "School ends in June.", "order_index": 6},
+        {"word": "July", "meaning": "iyul", "definition": "Seventh month of year", "example_sentence": "July is very hot.", "order_index": 7},
+        {"word": "August", "meaning": "avgust", "definition": "Eighth month of year", "example_sentence": "We go on vacation in August.", "order_index": 8},
+        {"word": "September", "meaning": "sentyabr", "definition": "Ninth month of year", "example_sentence": "School starts in September.", "order_index": 9},
+        {"word": "October", "meaning": "oktyabr", "definition": "Tenth month of year", "example_sentence": "Leaves change color in October.", "order_index": 10},
+        {"word": "November", "meaning": "noyabr", "definition": "Eleventh month of year", "example_sentence": "It gets cold in November.", "order_index": 11},
+        {"word": "December", "meaning": "dekabr", "definition": "Last month of year", "example_sentence": "December has Christmas.", "order_index": 12}
+      ]
+    },
+    {
+      "title": "When Things Happen",
+      "description": "Learn time words and expressions",
+      "order_index": 5,
+      "words": [
+        {"word": "early", "meaning": "erta", "definition": "Before the usual time", "example_sentence": "I wake up early every day.", "order_index": 1},
+        {"word": "late", "meaning": "kech", "definition": "After the usual time", "example_sentence": "Sorry, I'm late for the meeting.", "order_index": 2},
+        {"word": "now", "meaning": "hozir", "definition": "At this moment", "example_sentence": "I'm busy right now.", "order_index": 3},
+        {"word": "before", "meaning": "oldin", "definition": "Earlier than something", "example_sentence": "Come before 5 o'clock.", "order_index": 4},
+        {"word": "after", "meaning": "keyin", "definition": "Later than something", "example_sentence": "Let's meet after lunch.", "order_index": 5},
+        {"word": "during", "meaning": "davomida", "definition": "While something is happening", "example_sentence": "I study during the evening.", "order_index": 6},
+        {"word": "while", "meaning": "paytida", "definition": "At the same time as", "example_sentence": "I listen to music while cooking.", "order_index": 7},
+        {"word": "until", "meaning": "gacha", "definition": "Up to a certain time", "example_sentence": "Wait until I come back.", "order_index": 8},
+        {"word": "since", "meaning": "dan beri", "definition": "From a past time until now", "example_sentence": "I've lived here since 2020.", "order_index": 9},
+        {"word": "always", "meaning": "doimo", "definition": "All the time", "example_sentence": "She always arrives on time.", "order_index": 10},
+        {"word": "never", "meaning": "hech qachon", "definition": "Not at any time", "example_sentence": "I never eat spicy food.", "order_index": 11},
+        {"word": "sometimes", "meaning": "ba'zan", "definition": "Not always, but occasionally", "example_sentence": "I sometimes go to the cinema.", "order_index": 12}
+      ]
+    },
+    {
+      "title": "Daily Schedule",
+      "description": "Learn words about daily routines and schedules",
+      "order_index": 6,
+      "words": [
+        {"word": "schedule", "meaning": "jadval", "definition": "Plan of activities and times", "example_sentence": "My work schedule is very busy.", "order_index": 1},
+        {"word": "appointment", "meaning": "uchrashuv", "definition": "Planned meeting at specific time", "example_sentence": "I have a doctor's appointment.", "order_index": 2},
+        {"word": "meeting", "meaning": "yig'ilish", "definition": "Gathering of people for discussion", "example_sentence": "The meeting starts at 2 PM.", "order_index": 3},
+        {"word": "break", "meaning": "tanaffus", "definition": "Short rest period", "example_sentence": "Let's take a coffee break.", "order_index": 4},
+        {"word": "lunch", "meaning": "tushlik", "definition": "Meal in middle of day", "example_sentence": "Lunch time is from 12 to 1.", "order_index": 5},
+        {"word": "deadline", "meaning": "oxirgi muddat", "definition": "Time when something must be finished", "example_sentence": "The deadline for the project is Friday.", "order_index": 6},
+        {"word": "urgent", "meaning": "shoshilinch", "definition": "Needing immediate attention", "example_sentence": "This is urgent, please hurry.", "order_index": 7},
+        {"word": "delay", "meaning": "kechikish", "definition": "Making something happen later", "example_sentence": "The flight has a two-hour delay.", "order_index": 8},
+        {"word": "cancel", "meaning": "bekor qilmoq", "definition": "To decide not to do something planned", "example_sentence": "We had to cancel the picnic.", "order_index": 9},
+        {"word": "postpone", "meaning": "kechiktirmoq", "definition": "To move to a later time", "example_sentence": "Let's postpone the meeting until tomorrow.", "order_index": 10},
+        {"word": "on time", "meaning": "vaqtida", "definition": "At the correct time", "example_sentence": "The train arrived on time.", "order_index": 11},
+        {"word": "free time", "meaning": "bo'sh vaqt", "definition": "Time when you're not busy", "example_sentence": "I read books in my free time.", "order_index": 12}
+      ]
+    },
+    {
+      "title": "Counting and Math",
+      "description": "Learn basic math words and counting",
+      "order_index": 7,
+      "words": [
+        {"word": "add", "meaning": "qo'shmoq", "definition": "To put numbers together", "example_sentence": "Add five plus three equals eight.", "order_index": 1},
+        {"word": "subtract", "meaning": "ayirmoq", "definition": "To take away numbers", "example_sentence": "Subtract four from ten equals six.", "order_index": 2},
+        {"word": "multiply", "meaning": "ko'paytirmoq", "definition": "To make a number bigger by another number", "example_sentence": "Multiply three by four equals twelve.", "order_index": 3},
+        {"word": "divide", "meaning": "bo'lmoq", "definition": "To split a number into equal parts", "example_sentence": "Divide eight by two equals four.", "order_index": 4},
+        {"word": "plus", "meaning": "plyus/qo'shish", "definition": "Addition sign", "example_sentence": "Two plus two equals four.", "order_index": 5},
+        {"word": "minus", "meaning": "minus/ayirish", "definition": "Subtraction sign", "example_sentence": "Five minus one equals four.", "order_index": 6},
+        {"word": "equals", "meaning": "teng", "definition": "Same amount or value", "example_sentence": "Three plus two equals five.", "order_index": 7},
+        {"word": "total", "meaning": "jami", "definition": "Final amount after counting", "example_sentence": "The total cost is fifty dollars.", "order_index": 8},
+        {"word": "sum", "meaning": "yig'indi", "definition": "Result of adding numbers", "example_sentence": "The sum of 2 and 3 is 5.", "order_index": 9},
+        {"word": "difference", "meaning": "farq", "definition": "Result of subtracting numbers", "example_sentence": "The difference between 10 and 6 is 4.", "order_index": 10},
+        {"word": "double", "meaning": "ikki barobar", "definition": "Two times as much", "example_sentence": "Double four is eight.", "order_index": 11},
+        {"word": "half", "meaning": "yarim", "definition": "One of two equal parts", "example_sentence": "Half of six is three.", "order_index": 12}
+      ]
+    },
+    {
+      "title": "Dates and Special Days",
+      "description": "Learn about dates, holidays and special occasions",
+      "order_index": 8,
+      "words": [
+        {"word": "date", "meaning": "sana", "definition": "Specific day of month and year", "example_sentence": "What's today's date?", "order_index": 1},
+        {"word": "calendar", "meaning": "taqvim", "definition": "Chart showing days, weeks, and months", "example_sentence": "Check the calendar for important dates.", "order_index": 2},
+        {"word": "holiday", "meaning": "bayram", "definition": "Special day when people don't work", "example_sentence": "Christmas is my favorite holiday.", "order_index": 3},
+        {"word": "vacation", "meaning": "ta'til", "definition": "Time away from work or school", "example_sentence": "We're going on vacation next month.", "order_index": 4},
+        {"word": "anniversary", "meaning": "yillik", "definition": "Same date each year marking special event", "example_sentence": "Today is our wedding anniversary.", "order_index": 5},
+        {"word": "celebration", "meaning": "nishonlash", "definition": "Special event to mark happy occasion", "example_sentence": "We're having a celebration for graduation.", "order_index": 6},
+        {"word": "festival", "meaning": "festival", "definition": "Public celebration with entertainment", "example_sentence": "The music festival lasts three days.", "order_index": 7},
+        {"word": "event", "meaning": "voqea/tadbir", "definition": "Something that happens", "example_sentence": "The wedding was a beautiful event.", "order_index": 8},
+        {"word": "occasion", "meaning": "voqea", "definition": "Special or important time", "example_sentence": "This is a special occasion for our family.", "order_index": 9},
+        {"word": "ceremony", "meaning": "marosim", "definition": "Formal event for special purpose", "example_sentence": "The graduation ceremony was impressive.", "order_index": 10},
+        {"word": "tradition", "meaning": "an'ana", "definition": "Custom passed down through generations", "example_sentence": "It's our family tradition to eat together.", "order_index": 11},
+        {"word": "remember", "meaning": "eslamoq", "definition": "To keep in mind, not forget", "example_sentence": "Remember to call your mother.", "order_index": 12}
+      ]
+    },
+    {
+      "title": "Age and Years",
+      "description": "Learn to talk about age and periods of time",
+      "order_index": 9,
+      "words": [
+        {"word": "born", "meaning": "tug'ilgan", "definition": "When someone came into the world", "example_sentence": "I was born in 1995.", "order_index": 1},
+        {"word": "birth", "meaning": "tug'ilish", "definition": "The moment of being born", "example_sentence": "The birth of the baby was exciting.", "order_index": 2},
+        {"word": "grow", "meaning": "o'smoq", "definition": "To become bigger or older", "example_sentence": "Children grow very quickly.", "order_index": 3},
+        {"word": "adult", "meaning": "kattalar", "definition": "Fully grown person", "example_sentence": "At 18, you become an adult.", "order_index": 4},
+        {"word": "elderly", "meaning": "keksa", "definition": "Old person", "example_sentence": "We should respect elderly people.", "order_index": 5},
+        {"word": "generation", "meaning": "avlod", "definition": "People born around same time", "example_sentence": "My parents are from older generation.", "order_index": 6},
+        {"word": "century", "meaning": "asr", "definition": "100 years", "example_sentence": "We live in the 21st century.", "order_index": 7},
+        {"word": "decade", "meaning": "o'n yil", "definition": "10 years", "example_sentence": "A decade ago, life was different.", "order_index": 8},
+        {"word": "annual", "meaning": "yillik", "definition": "Happening every year", "example_sentence": "We have an annual family meeting.", "order_index": 9},
+        {"word": "monthly", "meaning": "oylik", "definition": "Happening every month", "example_sentence": "I pay monthly rent for my apartment.", "order_index": 10},
+        {"word": "weekly", "meaning": "haftalik", "definition": "Happening every week", "example_sentence": "We have weekly team meetings.", "order_index": 11},
+        {"word": "daily", "meaning": "kunlik", "definition": "Happening every day", "example_sentence": "Exercise is part of my daily routine.", "order_index": 12}
+      ]
+    },
+    {
+      "title": "Past, Present, Future",
+      "description": "Learn words about different time periods",
+      "order_index": 10,
+      "words": [
+        {"word": "past", "meaning": "o'tmish", "definition": "Time that has already happened", "example_sentence": "In the past, people didn't have phones.", "order_index": 1},
+        {"word": "present", "meaning": "hozirgi", "definition": "Time happening now", "example_sentence": "Live in the present moment.", "order_index": 2},
+        {"word": "future", "meaning": "kelajak", "definition": "Time that will happen", "example_sentence": "Nobody knows what the future holds.", "order_index": 3},
+        {"word": "ago", "meaning": "oldin", "definition": "In the past from now", "example_sentence": "I met her two years ago.", "order_index": 4},
+        {"word": "recently", "meaning": "yaqinda", "definition": "A short time ago", "example_sentence": "I recently moved to this city.", "order_index": 5},
+        {"word": "currently", "meaning": "hozirda", "definition": "At the present time", "example_sentence": "I'm currently working on a project.", "order_index": 6},
+        {"word": "soon", "meaning": "tez orada", "definition": "In the near future", "example_sentence": "I'll call you soon.", "order_index": 7},
+        {"word": "eventually", "meaning": "oxir-oqibat", "definition": "In the end, finally", "example_sentence": "Eventually, we found the solution.", "order_index": 8},
+        {"word": "immediately", "meaning": "darhol", "definition": "Right now, without delay", "example_sentence": "Please come here immediately.", "order_index": 9},
+        {"word": "instantly", "meaning": "bir zumda", "definition": "Happening at once", "example_sentence": "The photo uploaded instantly.", "order_index": 10},
+        {"word": "suddenly", "meaning": "to'satdan", "definition": "Happening without warning", "example_sentence": "Suddenly, it started raining.", "order_index": 11},
+        {"word": "gradually", "meaning": "asta-sekin", "definition": "Happening slowly over time", "example_sentence": "The weather is gradually getting warmer.", "order_index": 12}
+      ]
+    }
+  ]
+}

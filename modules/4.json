@@ -1,0 +1,197 @@
+{
+  "title": "Colors & Objects",
+  "description": "Learn colors and common everyday objects",
+  "order_index": 4,
+  "lessons": [
+    {
+      "title": "Colors Around Us",
+      "description": "Learn basic and advanced colors",
+      "order_index": 1,
+      "words": [
+        {"word": "bright", "meaning": "yorqin", "definition": "Having strong, vivid color", "example_sentence": "The bright sun hurts my eyes.", "order_index": 1},
+        {"word": "dark", "meaning": "qorong'i", "definition": "Having little light or deep color", "example_sentence": "I prefer dark chocolate.", "order_index": 2},
+        {"word": "light", "meaning": "och", "definition": "Having pale or bright color", "example_sentence": "She wore a light blue dress.", "order_index": 3},
+        {"word": "deep", "meaning": "to'q", "definition": "Having strong, rich color", "example_sentence": "The roses have deep red color.", "order_index": 4},
+        {"word": "pale", "meaning": "och", "definition": "Having weak or faded color", "example_sentence": "His face became pale from fear.", "order_index": 5},
+        {"word": "colorful", "meaning": "rangli", "definition": "Having many colors", "example_sentence": "The garden is very colorful.", "order_index": 6},
+        {"word": "colorless", "meaning": "rangsiz", "definition": "Having no color", "example_sentence": "Water is colorless.", "order_index": 7},
+        {"word": "golden", "meaning": "oltin rang", "definition": "Having the color of gold", "example_sentence": "She has beautiful golden hair.", "order_index": 8},
+        {"word": "silver", "meaning": "kumush rang", "definition": "Having the color of silver", "example_sentence": "The car has silver paint.", "order_index": 9},
+        {"word": "rainbow", "meaning": "kamalak", "definition": "Arc of colors in the sky", "example_sentence": "We saw a rainbow after the rain.", "order_index": 10},
+        {"word": "shade", "meaning": "soya/rang turi", "definition": "Different form of same color", "example_sentence": "I like this shade of green.", "order_index": 11},
+        {"word": "paint", "meaning": "bo'yoq", "definition": "Colored liquid for coloring", "example_sentence": "We need paint for the walls.", "order_index": 12}
+      ]
+    },
+    {
+      "title": "Things in My Room",
+      "description": "Learn furniture and room items",
+      "order_index": 2,
+      "words": [
+        {"word": "furniture", "meaning": "mebel", "definition": "Large objects like chairs and tables", "example_sentence": "We bought new furniture for the house.", "order_index": 1},
+        {"word": "desk", "meaning": "ish stoli", "definition": "Table for working or studying", "example_sentence": "I do homework at my desk.", "order_index": 2},
+        {"word": "shelf", "meaning": "javon", "definition": "Flat board for holding things", "example_sentence": "Put the books on the shelf.", "order_index": 3},
+        {"word": "drawer", "meaning": "tortma", "definition": "Sliding box in furniture", "example_sentence": "Keep your socks in the drawer.", "order_index": 4},
+        {"word": "closet", "meaning": "shkaf", "definition": "Small room for storing clothes", "example_sentence": "Hang your coat in the closet.", "order_index": 5},
+        {"word": "mirror", "meaning": "oyna", "definition": "Glass that shows reflection", "example_sentence": "Look at yourself in the mirror.", "order_index": 6},
+        {"word": "lamp", "meaning": "chiroq", "definition": "Device that gives light", "example_sentence": "Turn on the lamp, it's dark.", "order_index": 7},
+        {"word": "carpet", "meaning": "gilam", "definition": "Thick covering for floor", "example_sentence": "The carpet is soft and warm.", "order_index": 8},
+        {"word": "curtain", "meaning": "parda", "definition": "Cloth hanging over window", "example_sentence": "Close the curtains at night.", "order_index": 9},
+        {"word": "pillow", "meaning": "yostiq", "definition": "Soft cushion for head", "example_sentence": "I need two pillows to sleep.", "order_index": 10},
+        {"word": "blanket", "meaning": "ko'rpa", "definition": "Warm covering for bed", "example_sentence": "The blanket keeps me warm.", "order_index": 11},
+        {"word": "poster", "meaning": "poster", "definition": "Large picture on wall", "example_sentence": "I have a movie poster on my wall.", "order_index": 12}
+      ]
+    },
+    {
+      "title": "Kitchen Items",
+      "description": "Learn things we use for cooking and eating",
+      "order_index": 3,
+      "words": [
+        {"word": "plate", "meaning": "likop", "definition": "Flat dish for food", "example_sentence": "Put the food on the plate.", "order_index": 1},
+        {"word": "bowl", "meaning": "kosa", "definition": "Deep round dish", "example_sentence": "I eat soup from a bowl.", "order_index": 2},
+        {"word": "cup", "meaning": "piyola", "definition": "Small container for drinking", "example_sentence": "Can I have a cup of tea?", "order_index": 3},
+        {"word": "glass", "meaning": "stakan", "definition": "Transparent drinking container", "example_sentence": "Drink a glass of water.", "order_index": 4},
+        {"word": "spoon", "meaning": "qoshiq", "definition": "Tool for eating liquid food", "example_sentence": "Use a spoon for the soup.", "order_index": 5},
+        {"word": "fork", "meaning": "vilka", "definition": "Tool with points for eating", "example_sentence": "Cut the meat with fork and knife.", "order_index": 6},
+        {"word": "knife", "meaning": "pichoq", "definition": "Sharp tool for cutting", "example_sentence": "Be careful with the sharp knife.", "order_index": 7},
+        {"word": "pot", "meaning": "qozon", "definition": "Deep container for cooking", "example_sentence": "Cook the rice in a pot.", "order_index": 8},
+        {"word": "pan", "meaning": "tova", "definition": "Flat container for cooking", "example_sentence": "Fry the eggs in the pan.", "order_index": 9},
+        {"word": "stove", "meaning": "plita", "definition": "Device for cooking with heat", "example_sentence": "Heat the milk on the stove.", "order_index": 10},
+        {"word": "refrigerator", "meaning": "muzlatgich", "definition": "Machine that keeps food cold", "example_sentence": "Keep the milk in refrigerator.", "order_index": 11},
+        {"word": "microwave", "meaning": "mikroto'lqin", "definition": "Machine that heats food quickly", "example_sentence": "Heat the food in microwave.", "order_index": 12}
+      ]
+    },
+    {
+      "title": "Office and School Supplies",
+      "description": "Learn tools for work and study",
+      "order_index": 4,
+      "words": [
+        {"word": "pencil", "meaning": "qalam", "definition": "Writing tool with lead", "example_sentence": "Write with pencil first.", "order_index": 1},
+        {"word": "eraser", "meaning": "o'chirg'ich", "definition": "Tool for removing pencil marks", "example_sentence": "Use eraser to fix mistakes.", "order_index": 2},
+        {"word": "ruler", "meaning": "chizg'ich", "definition": "Tool for measuring and drawing lines", "example_sentence": "Draw straight line with ruler.", "order_index": 3},
+        {"word": "scissors", "meaning": "qaychi", "definition": "Tool for cutting paper", "example_sentence": "Cut the paper with scissors.", "order_index": 4},
+        {"word": "stapler", "meaning": "steppler", "definition": "Tool for joining papers", "example_sentence": "Use stapler to attach pages.", "order_index": 5},
+        {"word": "notebook", "meaning": "daftar", "definition": "Book with blank pages", "example_sentence": "Write notes in your notebook.", "order_index": 6},
+        {"word": "folder", "meaning": "papka", "definition": "Cover for holding papers", "example_sentence": "Keep documents in folder.", "order_index": 7},
+        {"word": "calculator", "meaning": "kalkulyator", "definition": "Machine for doing math", "example_sentence": "Use calculator for difficult problems.", "order_index": 8},
+        {"word": "printer", "meaning": "printer", "definition": "Machine that prints documents", "example_sentence": "Print the report on printer.", "order_index": 9},
+        {"word": "keyboard", "meaning": "klaviatura", "definition": "Set of keys for typing", "example_sentence": "Type on the computer keyboard.", "order_index": 10},
+        {"word": "mouse", "meaning": "sichqon", "definition": "Device for controlling computer", "example_sentence": "Click with the computer mouse.", "order_index": 11},
+        {"word": "screen", "meaning": "ekran", "definition": "Display surface of computer", "example_sentence": "Look at the computer screen.", "order_index": 12}
+      ]
+    },
+    {
+      "title": "Transportation",
+      "description": "Learn about vehicles and ways to travel",
+      "order_index": 5,
+      "words": [
+        {"word": "car", "meaning": "mashina", "definition": "Four-wheel vehicle for travel", "example_sentence": "My father drives a red car.", "order_index": 1},
+        {"word": "bus", "meaning": "avtobus", "definition": "Large vehicle for many people", "example_sentence": "I take the bus to work.", "order_index": 2},
+        {"word": "train", "meaning": "poyezd", "definition": "Long vehicle that runs on tracks", "example_sentence": "The train is faster than bus.", "order_index": 3},
+        {"word": "airplane", "meaning": "samolyot", "definition": "Flying vehicle for long distances", "example_sentence": "We flew to another country by airplane.", "order_index": 4},
+        {"word": "bicycle", "meaning": "velosiped", "definition": "Two-wheel vehicle powered by pedals", "example_sentence": "I ride my bicycle to school.", "order_index": 5},
+        {"word": "motorcycle", "meaning": "mototsikl", "definition": "Two-wheel vehicle with motor", "example_sentence": "Motorcycle is faster than bicycle.", "order_index": 6},
+        {"word": "taxi", "meaning": "taksi", "definition": "Car you pay to ride in", "example_sentence": "Call a taxi to the airport.", "order_index": 7},
+        {"word": "boat", "meaning": "qayiq", "definition": "Vehicle that travels on water", "example_sentence": "We crossed the river by boat.", "order_index": 8},
+        {"word": "ship", "meaning": "kema", "definition": "Large boat for ocean travel", "example_sentence": "The ship carries many passengers.", "order_index": 9},
+        {"word": "truck", "meaning": "yuk mashinasi", "definition": "Large vehicle for carrying things", "example_sentence": "The truck delivered furniture.", "order_index": 10},
+        {"word": "wheel", "meaning": "g'ildirak", "definition": "Round part that helps vehicles move", "example_sentence": "The car has four wheels.", "order_index": 11},
+        {"word": "engine", "meaning": "motor", "definition": "Part of vehicle that provides power", "example_sentence": "The car engine makes noise.", "order_index": 12}
+      ]
+    },
+    {
+      "title": "Electronic Devices",
+      "description": "Learn about modern technology items",
+      "order_index": 6,
+      "words": [
+        {"word": "television", "meaning": "televizor", "definition": "Device for watching programs", "example_sentence": "We watch news on television.", "order_index": 1},
+        {"word": "radio", "meaning": "radio", "definition": "Device for listening to broadcasts", "example_sentence": "I listen to music on radio.", "order_index": 2},
+        {"word": "camera", "meaning": "kamera", "definition": "Device for taking pictures", "example_sentence": "Take a photo with the camera.", "order_index": 3},
+        {"word": "battery", "meaning": "batareya", "definition": "Device that stores electrical power", "example_sentence": "The phone battery is low.", "order_index": 4},
+        {"word": "charger", "meaning": "zaryadlovchi", "definition": "Device for charging batteries", "example_sentence": "Connect phone to the charger.", "order_index": 5},
+        {"word": "headphones", "meaning": "quloqchinlar", "definition": "Device worn on ears for listening", "example_sentence": "I use headphones to listen music.", "order_index": 6},
+        {"word": "speaker", "meaning": "karnay", "definition": "Device that makes sound loud", "example_sentence": "The speaker is very loud.", "order_index": 7},
+        {"word": "remote", "meaning": "pult", "definition": "Device for controlling from distance", "example_sentence": "Use remote to change TV channel.", "order_index": 8},
+        {"word": "cable", "meaning": "kabel", "definition": "Wire for connecting devices", "example_sentence": "Connect with the USB cable.", "order_index": 9},
+        {"word": "switch", "meaning": "tugma/kalit", "definition": "Button for turning on/off", "example_sentence": "Press the switch to turn on light.", "order_index": 10},
+        {"word": "plug", "meaning": "vilka", "definition": "Part that goes into electrical outlet", "example_sentence": "Put the plug into the wall.", "order_index": 11},
+        {"word": "outlet", "meaning": "rozetka", "definition": "Socket in wall for electricity", "example_sentence": "The outlet provides electricity.", "order_index": 12}
+      ]
+    },
+    {
+      "title": "Tools and Equipment",
+      "description": "Learn about tools used for work and repair",
+      "order_index": 7,
+      "words": [
+        {"word": "hammer", "meaning": "bolg'a", "definition": "Tool for hitting nails", "example_sentence": "Use hammer to hit the nail.", "order_index": 1},
+        {"word": "nail", "meaning": "mix", "definition": "Small metal pin for joining wood", "example_sentence": "Hit the nail with hammer.", "order_index": 2},
+        {"word": "screw", "meaning": "vita", "definition": "Metal fastener with spiral thread", "example_sentence": "Tighten the screw with screwdriver.", "order_index": 3},
+        {"word": "screwdriver", "meaning": "vintgash", "definition": "Tool for turning screws", "example_sentence": "Use screwdriver to fix the chair.", "order_index": 4},
+        {"word": "drill", "meaning": "matkap", "definition": "Tool for making holes", "example_sentence": "Drill a hole in the wall.", "order_index": 5},
+        {"word": "saw", "meaning": "arra", "definition": "Tool for cutting wood", "example_sentence": "Cut the wood with saw.", "order_index": 6},
+        {"word": "rope", "meaning": "arqon", "definition": "Thick string for tying", "example_sentence": "Tie the box with rope.", "order_index": 7},
+        {"word": "ladder", "meaning": "narvon", "definition": "Steps for climbing up", "example_sentence": "Use ladder to reach high places.", "order_index": 8},
+        {"word": "wrench", "meaning": "kalit", "definition": "Tool for turning nuts and bolts", "example_sentence": "Tighten the bolt with wrench.", "order_index": 9},
+        {"word": "tape", "meaning": "lenta", "definition": "Sticky strip for joining", "example_sentence": "Use tape to stick papers.", "order_index": 10},
+        {"word": "glue", "meaning": "yelim", "definition": "Sticky substance for joining", "example_sentence": "Glue the broken pieces together.", "order_index": 11},
+        {"word": "box", "meaning": "quti", "definition": "Container for storing things", "example_sentence": "Put the tools in the box.", "order_index": 12}
+      ]
+    },
+    {
+      "title": "Toys and Games",
+      "description": "Learn about things children play with",
+      "order_index": 8,
+      "words": [
+        {"word": "toy", "meaning": "o'yinchoq", "definition": "Object for playing", "example_sentence": "Children love playing with toys.", "order_index": 1},
+        {"word": "doll", "meaning": "qo'g'irchoq", "definition": "Toy that looks like person", "example_sentence": "The little girl loves her doll.", "order_index": 2},
+        {"word": "ball", "meaning": "to'p", "definition": "Round object for games", "example_sentence": "Kick the ball to me.", "order_index": 3},
+        {"word": "puzzle", "meaning": "jumboq/pazl", "definition": "Game with pieces to fit together", "example_sentence": "Solve this difficult puzzle.", "order_index": 4},
+        {"word": "block", "meaning": "kubik", "definition": "Square toy for building", "example_sentence": "Build a tower with blocks.", "order_index": 5},
+        {"word": "card", "meaning": "karta", "definition": "Small piece of paper for games", "example_sentence": "Let's play cards together.", "order_index": 6},
+        {"word": "board", "meaning": "doska", "definition": "Flat surface for games", "example_sentence": "We need board for chess game.", "order_index": 7},
+        {"word": "dice", "meaning": "kub", "definition": "Small cube with dots for games", "example_sentence": "Roll the dice to start game.", "order_index": 8},
+        {"word": "kite", "meaning": "uçurtma", "definition": "Flying toy controlled by string", "example_sentence": "Fly the kite in the wind.", "order_index": 9},
+        {"word": "robot", "meaning": "robot", "definition": "Toy that looks like machine person", "example_sentence": "The robot toy can walk.", "order_index": 10},
+        {"word": "teddy", "meaning": "ayicha", "definition": "Soft toy bear", "example_sentence": "Sleep with your teddy bear.", "order_index": 11},
+        {"word": "swing", "meaning": "belanchak", "definition": "Hanging seat that moves back and forth", "example_sentence": "Push me on the swing.", "order_index": 12}
+      ]
+    },
+    {
+      "title": "Musical Instruments",
+      "description": "Learn about instruments that make music",
+      "order_index": 9,
+      "words": [
+        {"word": "instrument", "meaning": "asbob", "definition": "Tool for making music", "example_sentence": "Piano is my favorite instrument.", "order_index": 1},
+        {"word": "piano", "meaning": "pianino", "definition": "Large instrument with black and white keys", "example_sentence": "She plays piano beautifully.", "order_index": 2},
+        {"word": "guitar", "meaning": "gitara", "definition": "String instrument played with fingers", "example_sentence": "He learned to play guitar.", "order_index": 3},
+        {"word": "drum", "meaning": "baraban", "definition": "Instrument you hit to make rhythm", "example_sentence": "The drum makes loud sounds.", "order_index": 4},
+        {"word": "violin", "meaning": "skripka", "definition": "String instrument played with bow", "example_sentence": "Violin makes beautiful sound.", "order_index": 5},
+        {"word": "flute", "meaning": "nay", "definition": "Wind instrument you blow into", "example_sentence": "The flute has a sweet sound.", "order_index": 6},
+        {"word": "trumpet", "meaning": "karnay", "definition": "Brass wind instrument", "example_sentence": "The trumpet is very loud.", "order_index": 7},
+        {"word": "microphone", "meaning": "mikrofon", "definition": "Device for making voice louder", "example_sentence": "Speak into the microphone.", "order_index": 8},
+        {"word": "song", "meaning": "qo'shiq", "definition": "Music with words", "example_sentence": "Sing your favorite song.", "order_index": 9},
+        {"word": "melody", "meaning": "ohang", "definition": "Tune or musical pattern", "example_sentence": "This melody is very beautiful.", "order_index": 10},
+        {"word": "rhythm", "meaning": "ritm", "definition": "Beat pattern in music", "example_sentence": "Dance to the rhythm.", "order_index": 11},
+        {"word": "note", "meaning": "nota", "definition": "Single musical sound", "example_sentence": "Play the high note on piano.", "order_index": 12}
+      ]
+    },
+    {
+      "title": "Sports Equipment",
+      "description": "Learn about things used in sports and exercise",
+      "order_index": 10,
+      "words": [
+        {"word": "equipment", "meaning": "jihozlar", "definition": "Tools and gear for activities", "example_sentence": "We need sports equipment.", "order_index": 1},
+        {"word": "racket", "meaning": "raketka", "definition": "Tool for hitting ball in tennis", "example_sentence": "Hit the ball with racket.", "order_index": 2},
+        {"word": "net", "meaning": "to'r", "definition": "Mesh barrier in sports", "example_sentence": "The ball went over the net.", "order_index": 3},
+        {"word": "goal", "meaning": "darvoza", "definition": "Target area in football", "example_sentence": "Kick the ball into the goal.", "order_index": 4},
+        {"word": "bat", "meaning": "tayoqcha", "definition": "Stick for hitting ball in baseball", "example_sentence": "Swing the bat to hit ball.", "order_index": 5},
+        {"word": "helmet", "meaning": "dubulg'a", "definition": "Hard hat for head protection", "example_sentence": "Wear helmet when riding bike.", "order_index": 6},
+        {"word": "glove", "meaning": "qo'lqop", "definition": "Hand covering for protection", "example_sentence": "Catch the ball with glove.", "order_index": 7},
+        {"word": "uniform", "meaning": "forma", "definition": "Special clothes for sports", "example_sentence": "Players wear team uniform.", "order_index": 8},
+        {"word": "field", "meaning": "maydon", "definition": "Large area for playing sports", "example_sentence": "The football field is green.", "order_index": 9},
+        {"word": "court", "meaning": "kort", "definition": "Area for playing tennis or basketball", "example_sentence": "The basketball court is indoors.", "order_index": 10},
+        {"word": "pool", "meaning": "basseyn", "definition": "Large container filled with water", "example_sentence": "Swim in the swimming pool.", "order_index": 11},
+        {"word": "medal", "meaning": "medal", "definition": "Prize given to winners", "example_sentence": "She won gold medal.", "order_index": 12}
+      ]
+    }
+  ]
+}

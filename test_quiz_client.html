@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz System Test Client</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        h1, h2 {
+            color: #333;
+        }
+        
+        .role-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .role-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        
+        .role-btn.active {
+            background: #28a745;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .question-container {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        .option-btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 5px;
+            cursor: pointer;
+            text-align: left;
+        }
+        
+        .option-btn:hover {
+            background: #f8f9fa;
+            border-color: #007bff;
+        }
+        
+        .option-btn.correct {
+            background: #d4edda;
+            border-color: #28a745;
+        }
+        
+        .option-btn.wrong {
+            background: #f8d7da;
+            border-color: #dc3545;
+        }
+        
+        .leaderboard {
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .countdown {
+            font-size: 24px;
+            font-weight: bold;
+            color: #dc3545;
+            text-align: center;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .log {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        
+        input, button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎯 Kahoot-Style Quiz System Test</h1>
+    
+    <!-- Role Selection -->
+    <div class="container">
+        <h2>Select Role</h2>
+        <div class="role-selector">
+            <button class="role-btn" onclick="selectRole('teacher')">👨‍🏫 Teacher</button>
+            <button class="role-btn" onclick="selectRole('student')">🧑‍🎓 Student</button>
+        </div>
+    </div>
+    
+    <!-- Connection -->
+    <div class="container">
+        <h2>Connection</h2>
+        <div class="input-group">
+            <input type="text" id="tokenInput" placeholder="JWT Token (get from /api/auth/login)" style="flex: 1;">
+            <button onclick="connect()">Connect</button>
+            <button onclick="disconnect()">Disconnect</button>
+        </div>
+        <div id="connectionStatus" class="status disconnected">❌ Disconnected</div>
+    </div>
+    
+    <!-- Teacher Panel -->
+    <div id="teacherPanel" class="container hidden">
+        <h2>👨‍🏫 Teacher Panel</h2>
+        
+        <div class="input-group">
+            <input type="text" id="lessonIds" placeholder="Lesson IDs (comma separated): 1,2,3" style="flex: 1;">
+            <input type="number" id="numQuestions" placeholder="Questions" value="5" min="1" max="50">
+            <label><input type="checkbox" id="isLocked"> Private Room</label>
+            <button onclick="createRoom()">Create Room</button>
+        </div>
+        
+        <div id="teacherRoomCode" class="hidden">
+            <h3>Room Code: <span id="roomCode"></span></h3>
+            <div class="input-group">
+                <button onclick="startQuiz()">🚀 Start Quiz</button>
+                <button onclick="skipQuestion()">⏭️ Skip Question</button>
+                <button onclick="nextQuestion()">▶️ Next Question</button>
+                <button onclick="getRoomStatus()">📊 Room Status</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Student Panel -->
+    <div id="studentPanel" class="container hidden">
+        <h2>🧑‍🎓 Student Panel</h2>
+        
+        <div class="input-group">
+            <input type="text" id="joinRoomCode" placeholder="Room Code (3 digits)" maxlength="3">
+            <button onclick="joinRoom()">Join Room</button>
+            <button onclick="leaveRoom()">Leave Room</button>
+            <button onclick="getPublicRooms()">🔍 Find Public Rooms</button>
+        </div>
+        
+        <div id="publicRooms"></div>
+    </div>
+    
+    <!-- Quiz Area -->
+    <div id="quizArea" class="container hidden">
+        <h2>🎮 Quiz in Progress</h2>
+        <div id="countdown" class="countdown hidden">⏱️ 20</div>
+        <div id="questionContainer" class="question-container hidden">
+            <h3 id="questionText">Question will appear here...</h3>
+            <div id="optionsContainer"></div>
+        </div>
+        <div id="resultsContainer" class="hidden">
+            <h3>📊 Results</h3>
+            <div id="leaderboard" class="leaderboard"></div>
+        </div>
+    </div>
+    
+    <!-- Log -->
+    <div class="container">
+        <h2>📝 Event Log</h2>
+        <div id="log" class="log"></div>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <script>
+        let socket = null;
+        let currentRole = null;
+        let currentRoomCode = null;
+        let countdownInterval = null;
+        
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }
+        
+        function selectRole(role) {
+            currentRole = role;
+            document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Show appropriate panel
+            document.getElementById('teacherPanel').classList.toggle('hidden', role !== 'teacher');
+            document.getElementById('studentPanel').classList.toggle('hidden', role !== 'student');
+            
+            log(`Role selected: ${role}`);
+        }
+        
+        function connect() {
+            const token = document.getElementById('tokenInput').value;
+            if (!token) {
+                alert('Please enter JWT token');
+                return;
+            }
+            
+            socket = io('ws://localhost:8000/socket.io/', {
+                query: { token: token }
+            });
+            
+            // Connection events
+            socket.on('connect', () => {
+                log('Connected to server');
+                document.getElementById('connectionStatus').className = 'status connected';
+                document.getElementById('connectionStatus').textContent = '✅ Connected';
+            });
+            
+            socket.on('disconnect', () => {
+                log('Disconnected from server');
+                document.getElementById('connectionStatus').className = 'status disconnected';
+                document.getElementById('connectionStatus').textContent = '❌ Disconnected';
+            });
+            
+            socket.on('connected', (data) => {
+                log(`Authenticated as: ${data.name} (${data.role})`);
+            });
+            
+            socket.on('error', (data) => {
+                log(`❌ Error: ${data.message}`);
+            });
+            
+            // Room events
+            socket.on('room_joined', (data) => {
+                log(`✅ Joined room ${data.room_code} (Teacher: ${data.teacher_name})`);
+                currentRoomCode = data.room_code;
+                showQuizArea();
+            });
+            
+            socket.on('player_joined', (data) => {
+                log(`👋 ${data.name} joined room (${data.players_count} players total)`);
+            });
+            
+            socket.on('player_left', (data) => {
+                log(`👋 ${data.name} left room (${data.players_count} players total)`);
+            });
+            
+            // Quiz events
+            socket.on('quiz_started', (data) => {
+                log(`🚀 Quiz started! ${data.total_questions} questions`);
+                showQuizArea();
+            });
+            
+            socket.on('question_started', (data) => {
+                log(`❓ Question ${data.question_number}/${data.total_questions}: ${data.word}`);
+                showQuestion(data);
+                startCountdown(data.time_limit);
+            });
+            
+            socket.on('countdown', (data) => {
+                updateCountdown(data.remaining);
+            });
+            
+            socket.on('question_ended', (data) => {
+                log(`✅ Correct answer: ${data.question.correct_answer}`);
+                endCountdown();
+                showResults(data);
+            });
+            
+            socket.on('quiz_finished', (data) => {
+                log('🏆 Quiz finished!');
+                showFinalResults(data);
+            });
+            
+            socket.on('answer_submitted', (data) => {
+                log(`📝 Answer submitted: Option ${data.answer_index}`);
+                disableOptions();
+            });
+            
+            socket.on('answer_received', (data) => {
+                log(`📥 ${data.player_name} answered (${data.answers_count}/${data.total_players})`);
+            });
+            
+            socket.on('public_rooms_updated', (data) => {
+                log(`🔄 Public rooms updated: ${data.rooms.length} rooms`);
+                displayPublicRooms(data.rooms);
+            });
+            
+            socket.on('teacher_disconnected', (data) => {
+                log(`❌ ${data.message}`);
+                hideQuizArea();
+            });
+        }
+        
+        function disconnect() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+        }
+        
+        // Teacher functions
+        async function createRoom() {
+            const lessonIds = document.getElementById('lessonIds').value.split(',').map(id => parseInt(id.trim()));
+            const numQuestions = parseInt(document.getElementById('numQuestions').value);
+            const isLocked = document.getElementById('isLocked').checked;
+            const token = document.getElementById('tokenInput').value;
+            
+            try {
+                const response = await fetch('/api/quiz/teacher/create-room', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        lesson_ids: lessonIds,
+                        num_questions: numQuestions,
+                        is_locked: isLocked
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    currentRoomCode = result.data.room_code;
+                    document.getElementById('roomCode').textContent = currentRoomCode;
+                    document.getElementById('teacherRoomCode').classList.remove('hidden');
+                    log(`✅ Room created: ${currentRoomCode}`);
+                } else {
+                    log(`❌ Failed to create room: ${result.message}`);
+                }
+            } catch (error) {
+                log(`❌ Error creating room: ${error.message}`);
+            }
+        }
+        
+        async function startQuiz() {
+            await makeTeacherRequest('/api/quiz/teacher/start-quiz', { room_code: currentRoomCode });
+        }
+        
+        async function skipQuestion() {
+            await makeTeacherRequest('/api/quiz/teacher/skip-question', { room_code: currentRoomCode });
+        }
+        
+        async function nextQuestion() {
+            await makeTeacherRequest('/api/quiz/teacher/next-question', { room_code: currentRoomCode });
+        }
+        
+        async function getRoomStatus() {
+            const token = document.getElementById('tokenInput').value;
+            try {
+                const response = await fetch(`/api/quiz/teacher/room-status/${currentRoomCode}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await response.json();
+                log(`📊 Room Status: ${JSON.stringify(result.data, null, 2)}`);
+            } catch (error) {
+                log(`❌ Error getting room status: ${error.message}`);
+            }
+        }
+        
+        async function makeTeacherRequest(endpoint, data) {
+            const token = document.getElementById('tokenInput').value;
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                log(`✅ ${endpoint}: ${result.message || 'Success'}`);
+            } catch (error) {
+                log(`❌ Error with ${endpoint}: ${error.message}`);
+            }
+        }
+        
+        // Student functions
+        function joinRoom() {
+            const roomCode = document.getElementById('joinRoomCode').value;
+            if (!roomCode || !socket) return;
+            
+            socket.emit('join_room_socket', { room_code: roomCode });
+        }
+        
+        function leaveRoom() {
+            if (!currentRoomCode || !socket) return;
+            socket.emit('leave_room_socket', { room_code: currentRoomCode });
+            hideQuizArea();
+        }
+        
+        async function getPublicRooms() {
+            const token = document.getElementById('tokenInput').value;
+            try {
+                const response = await fetch('/api/quiz/student/public-rooms', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await response.json();
+                displayPublicRooms(result.data.rooms);
+            } catch (error) {
+                log(`❌ Error getting public rooms: ${error.message}`);
+            }
+        }
+        
+        function displayPublicRooms(rooms) {
+            const container = document.getElementById('publicRooms');
+            if (rooms.length === 0) {
+                container.innerHTML = '<p>No public rooms available</p>';
+                return;
+            }
+            
+            container.innerHTML = '<h3>🌐 Public Rooms:</h3>' + 
+                rooms.map(room => 
+                    `<div style="border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 5px;">
+                        <strong>Room ${room.code}</strong> - ${room.teacher_name}<br>
+                        Players: ${room.players_count} | Questions: ${room.num_questions}<br>
+                        <button onclick="document.getElementById('joinRoomCode').value='${room.code}'; joinRoom();">Join</button>
+                    </div>`
+                ).join('');
+        }
+        
+        // Quiz UI functions
+        function showQuizArea() {
+            document.getElementById('quizArea').classList.remove('hidden');
+        }
+        
+        function hideQuizArea() {
+            document.getElementById('quizArea').classList.add('hidden');
+            currentRoomCode = null;
+        }
+        
+        function showQuestion(data) {
+            document.getElementById('questionText').textContent = `❓ ${data.word}`;
+            const optionsContainer = document.getElementById('optionsContainer');
+            optionsContainer.innerHTML = data.options.map((option, index) => 
+                `<button class="option-btn" onclick="submitAnswer(${index})">${String.fromCharCode(65 + index)}. ${option}</button>`
+            ).join('');
+            
+            document.getElementById('questionContainer').classList.remove('hidden');
+            document.getElementById('resultsContainer').classList.add('hidden');
+        }
+        
+        function submitAnswer(index) {
+            if (!socket || !currentRoomCode) return;
+            socket.emit('submit_answer_socket', {
+                room_code: currentRoomCode,
+                answer_index: index
+            });
+        }
+        
+        function disableOptions() {
+            document.querySelectorAll('.option-btn').forEach(btn => btn.disabled = true);
+        }
+        
+        function startCountdown(seconds) {
+            let remaining = seconds;
+            const countdownEl = document.getElementById('countdown');
+            countdownEl.classList.remove('hidden');
+            countdownEl.textContent = `⏱️ ${remaining}`;
+            
+            countdownInterval = setInterval(() => {
+                remaining--;
+                countdownEl.textContent = `⏱️ ${remaining}`;
+                if (remaining <= 0) {
+                    endCountdown();
+                }
+            }, 1000);
+        }
+        
+        function updateCountdown(remaining) {
+            document.getElementById('countdown').textContent = `⏱️ ${remaining}`;
+        }
+        
+        function endCountdown() {
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+            document.getElementById('countdown').classList.add('hidden');
+        }
+        
+        function showResults(data) {
+            document.getElementById('questionContainer').classList.add('hidden');
+            document.getElementById('resultsContainer').classList.remove('hidden');
+            
+            // Show correct answer
+            const correctIndex = data.question.correct_index;
+            document.querySelectorAll('.option-btn').forEach((btn, index) => {
+                if (index === correctIndex) {
+                    btn.classList.add('correct');
+                } else {
+                    btn.classList.add('wrong');
+                }
+            });
+            
+            // Show enhanced leaderboard with position changes and points added
+            const leaderboard = document.getElementById('leaderboard');
+            leaderboard.innerHTML = '<h4>🏆 Leaderboard Changes:</h4>' +
+                data.leaderboard.map(player => {
+                    let changeIcon = '';
+                    let changeStyle = '';
+                    
+                    if (player.change_indicator === 'up') {
+                        changeIcon = '⬆️';
+                        changeStyle = 'color: green; font-weight: bold;';
+                    } else if (player.change_indicator === 'down') {
+                        changeIcon = '⬇️';
+                        changeStyle = 'color: red; font-weight: bold;';
+                    } else if (player.change_indicator === 'same') {
+                        changeIcon = '➡️';
+                        changeStyle = 'color: gray;';
+                    } else if (player.change_indicator === 'new') {
+                        changeIcon = '🆕';
+                        changeStyle = 'color: blue; font-weight: bold;';
+                    }
+                    
+                    const pointsAddedText = player.points_added > 0 ? ` (+${player.points_added} pts)` : ' (+0 pts)';
+                    
+                    return `<div style="padding: 8px; margin: 3px 0; background: ${player.rank <= 3 ? '#fff3cd' : '#f8f9fa'}; border-radius: 5px; display: flex; justify-content: space-between; align-items: center;">
+                        <span>
+                            ${player.rank === 1 ? '🥇' : player.rank === 2 ? '🥈' : player.rank === 3 ? '🥉' : '🏆'} 
+                            ${player.rank}. ${player.name} ${player.is_connected ? '🟢' : '🔴'}
+                        </span>
+                        <span>
+                            <strong>${player.score} points</strong><span style="color: #28a745;">${pointsAddedText}</span>
+                            <span style="${changeStyle}"> ${changeIcon} ${player.change_text}</span>
+                        </span>
+                    </div>`;
+                }).join('');
+        }
+        
+        function showFinalResults(data) {
+            document.getElementById('questionContainer').classList.add('hidden');
+            document.getElementById('resultsContainer').classList.remove('hidden');
+            
+            const leaderboard = document.getElementById('leaderboard');
+            leaderboard.innerHTML = '<h4>🎉 Final Results:</h4>' +
+                data.final_leaderboard.map(player => 
+                    `<div style="padding: 5px; margin: 2px 0; background: ${player.rank <= 3 ? '#fff3cd' : '#f8f9fa'}">
+                        ${player.rank === 1 ? '🥇' : player.rank === 2 ? '🥈' : player.rank === 3 ? '🥉' : '🏆'} 
+                        ${player.rank}. ${player.name} - ${player.score} points
+                    </div>`
+                ).join('');
+        }
+    </script>
+</body>
+</html>
