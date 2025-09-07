@@ -14,6 +14,10 @@ from .utils import format_phone, validate_phone, validate_uzbek_phone, generate_
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Disable noisy HTTP and Telegram logs
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("telegram.ext.Application").setLevel(logging.WARNING)
+
 class TelegramBot:
     def __init__(self):
         self.token = os.getenv("TELEGRAM_BOT_TOKEN")

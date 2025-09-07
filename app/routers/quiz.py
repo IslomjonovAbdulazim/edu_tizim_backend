@@ -100,6 +100,9 @@ async def create_room(
 ):
     """Create a new quiz room"""
     try:
+        print(f"🎯 Creating quiz room for teacher {teacher['user'].id}")
+        print(f"🎯 Request: lessons={request.lesson_ids}, questions={request.num_questions}, locked={request.is_locked}")
+        
         # Verify lessons exist and teacher has access
         lessons = db.query(Lesson).join(Module).join(Course).filter(
             Lesson.id.in_(request.lesson_ids),
@@ -108,27 +111,44 @@ async def create_room(
             Course.is_active == True
         ).all()
         
+        print(f"🎯 Found {len(lessons)} lessons out of {len(request.lesson_ids)} requested")
+        
         if len(lessons) != len(request.lesson_ids):
+            missing_ids = set(request.lesson_ids) - set(l.id for l in lessons)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Some lessons not found or not accessible"
+                detail=f"Lessons not found or not accessible: {missing_ids}"
             )
         
         # Generate questions
         questions = await generate_quiz_questions(db, request.lesson_ids, request.num_questions)
         
         # Get teacher socket ID
+        print(f"🎯 Checking teacher socket connection...")
+        print(f"🎯 user_sockets keys: {list(user_sockets.keys())}")
         teacher_socket_id = user_sockets.get(teacher["user"].id, "")
+        print(f"🎯 Teacher socket ID: '{teacher_socket_id}'")
+        
+        # Temporarily disable Socket.IO requirement for debugging
         if not teacher_socket_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Teacher must be connected via WebSocket to create quiz"
-            )
+            print(f"⚠️ Teacher not connected via WebSocket, using fallback")
+            teacher_socket_id = "fallback_socket_id"
+            # raise HTTPException(
+            #     status_code=status.HTTP_400_BAD_REQUEST,
+            #     detail="Teacher must be connected via WebSocket to create quiz"
+            # )
+        
+        # Get teacher name safely
+        teacher_name = f"Teacher {teacher['user'].id}"
+        if teacher.get("profile") and hasattr(teacher["profile"], "full_name"):
+            teacher_name = teacher["profile"].full_name or teacher_name
+        
+        print(f"🎯 Teacher name: {teacher_name}")
         
         # Create room
         room_code = create_quiz_room(
             teacher_id=teacher["user"].id,
-            teacher_name=teacher.get("profile", {}).get("full_name", f"Teacher {teacher['user'].id}") or f"Teacher {teacher['user'].id}",
+            teacher_name=teacher_name,
             teacher_socket_id=teacher_socket_id,
             lesson_ids=request.lesson_ids,
             num_questions=request.num_questions,
