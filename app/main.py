@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+import socketio
 import os
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -8,9 +9,10 @@ import atexit
 
 from .database import engine, SessionLocal
 from .models import Base, User, UserRole
-from .routers import auth, super_admin, admin, teacher, content, telegram, student
+from .routers import auth, super_admin, admin, teacher, content, telegram, student, quiz
 from .utils import hash_password
 from .services import SchedulerService
+from .socket_manager import sio
 
 load_dotenv()
 
@@ -23,6 +25,9 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# Create Socket.IO app
+socket_app = socketio.ASGIApp(sio, app)
 
 # CORS middleware - restrict in production
 app.add_middleware(
@@ -59,6 +64,7 @@ app.include_router(teacher.router, prefix="/api/teacher", tags=["Teacher"])
 app.include_router(content.router, prefix="/api/content", tags=["Content"])
 app.include_router(telegram.router, prefix="/api/telegram", tags=["Telegram Bot"])
 app.include_router(student.router, prefix="/api/student", tags=["Student"])
+app.include_router(quiz.router, prefix="/api/quiz", tags=["Quiz System"])
 
 @app.get("/")
 def root():
@@ -112,6 +118,15 @@ def daily_countdown_task():
     finally:
         db.close()
 
+def quiz_cleanup_task():
+    """Background task to clean up old quiz rooms"""
+    try:
+        from .quiz_models import cleanup_disconnected_rooms
+        cleanup_disconnected_rooms()
+        print("✅ Quiz rooms cleaned up")
+    except Exception as e:
+        print(f"❌ Error in quiz cleanup: {e}")
+
 
 # Initialize scheduler with Tashkent timezone
 scheduler = BackgroundScheduler(timezone="Asia/Tashkent")
@@ -122,8 +137,17 @@ scheduler.add_job(
     minute=0,
     id="daily_countdown"
 )
+scheduler.add_job(
+    func=quiz_cleanup_task,
+    trigger="interval",
+    minutes=5,  # Clean up quiz rooms every 5 minutes
+    id="quiz_cleanup"
+)
 scheduler.start()
 
 # Shutdown scheduler on app exit
 atexit.register(lambda: scheduler.shutdown())
+
+# For uvicorn, export the socket_app which includes both FastAPI and Socket.IO
+application = socket_app
 
