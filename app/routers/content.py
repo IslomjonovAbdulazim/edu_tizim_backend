@@ -251,12 +251,32 @@ def update_lesson_progress(
     if current_user["role"] != "student":
         raise HTTPException(status_code=403, detail="Only students can update progress")
 
-    if not current_user["profile"]:
-        raise HTTPException(status_code=403, detail="No active profile found")
+    # Find the center from the lesson
+    lesson = db.query(Lesson).join(Module).join(Course).filter(
+        Lesson.id == progress_data.lesson_id,
+        Lesson.is_active == True,
+        Module.is_active == True,
+        Course.is_active == True
+    ).first()
+    
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    
+    center_id = lesson.module.course.center_id
+    
+    # Find student's profile in this center
+    profile = db.query(LearningCenterProfile).filter(
+        LearningCenterProfile.user_id == current_user["user"].id,
+        LearningCenterProfile.center_id == center_id,
+        LearningCenterProfile.is_active == True
+    ).first()
+    
+    if not profile:
+        raise HTTPException(status_code=403, detail="Student not enrolled in this lesson's learning center")
 
     coins_earned = ProgressService.update_lesson_progress(
         db,
-        current_user["profile"].id,
+        profile.id,
         progress_data.lesson_id,
         progress_data.percentage
     )
@@ -278,12 +298,33 @@ def update_word_progress(
     if current_user["role"] != "student":
         raise HTTPException(status_code=403, detail="Only students can update word progress")
 
-    if not current_user["profile"]:
-        raise HTTPException(status_code=403, detail="No active profile found")
+    # Find the center from the word
+    word = db.query(Word).join(Lesson).join(Module).join(Course).filter(
+        Word.id == word_attempt.word_id,
+        Word.is_active == True,
+        Lesson.is_active == True,
+        Module.is_active == True,
+        Course.is_active == True
+    ).first()
+    
+    if not word:
+        raise HTTPException(status_code=404, detail="Word not found")
+    
+    center_id = word.lesson.module.course.center_id
+    
+    # Find student's profile in this center
+    profile = db.query(LearningCenterProfile).filter(
+        LearningCenterProfile.user_id == current_user["user"].id,
+        LearningCenterProfile.center_id == center_id,
+        LearningCenterProfile.is_active == True
+    ).first()
+    
+    if not profile:
+        raise HTTPException(status_code=403, detail="Student not enrolled in this word's learning center")
 
     ProgressService.update_word_progress(
         db,
-        current_user["profile"].id,
+        profile.id,
         word_attempt.word_id,
         word_attempt.correct
     )

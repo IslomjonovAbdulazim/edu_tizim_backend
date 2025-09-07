@@ -92,6 +92,20 @@ def get_current_user_data(db: Session, user_id: int, center_id: Optional[int] = 
                 LearningCenter.id == center_id,
                 LearningCenter.is_active == True
             ).first()
+    else:
+        # If no center_id provided, try to find student's first active profile
+        if user.role == UserRole.STUDENT:
+            profile = db.query(LearningCenterProfile).filter(
+                LearningCenterProfile.user_id == user_id,
+                LearningCenterProfile.is_active == True
+            ).first()
+            
+            if profile:
+                center = db.query(LearningCenter).filter(
+                    LearningCenter.id == profile.center_id,
+                    LearningCenter.is_active == True
+                ).first()
+                center_id = profile.center_id
 
     if not profile and user.role != UserRole.SUPER_ADMIN:
         if user.role == UserRole.STUDENT:
