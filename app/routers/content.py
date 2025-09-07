@@ -20,20 +20,49 @@ def get_courses(
     """Get available courses for a center"""
     if current_user["role"] not in ["admin", "teacher", "student"]:
         raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Get courses for the requested center
     courses = db.query(Course).filter(
         Course.center_id == center_id,
         Course.is_active == True
     ).all()
 
-    if not courses:
-        return APIResponse.success([], "No courses found for this center")
-
-    return APIResponse.success([{
+    courses_list = [{
         "id": course.id,
         "title": course.title,
         "description": course.description,
-        "created_at": course.created_at
-    } for course in courses])
+        "created_at": course.created_at,
+        "center_id": course.center_id
+    } for course in courses]
+    
+    # For teachers, also include Everest content (center_id=4, course_id=2)
+    EVEREST_CENTER_ID = 4
+    EVEREST_COURSE_ID = 2
+    
+    if current_user["role"] == "teacher" and center_id != EVEREST_CENTER_ID:
+        # Add Everest course to the list
+        everest_course = db.query(Course).filter(
+            Course.id == EVEREST_COURSE_ID,
+            Course.center_id == EVEREST_CENTER_ID,
+            Course.is_active == True
+        ).first()
+        
+        if everest_course:
+            # Check if it's not already in the list
+            if not any(c["id"] == EVEREST_COURSE_ID for c in courses_list):
+                courses_list.append({
+                    "id": everest_course.id,
+                    "title": f"📚 {everest_course.title} (Global Content)",
+                    "description": everest_course.description,
+                    "created_at": everest_course.created_at,
+                    "center_id": everest_course.center_id,
+                    "is_everest_content": True
+                })
+
+    if not courses_list:
+        return APIResponse.success([], "No courses found for this center")
+
+    return APIResponse.success(courses_list)
 
 
 @router.get("/courses/{course_id}")

@@ -28,8 +28,10 @@ def teacher_dashboard(
     """Teacher dashboard with assigned groups overview"""
     profile_id = current_user["profile"].id
     center_id = current_user["center_id"]
+    user = current_user["user"]
 
     check_center_active(center_id, db)
+
 
     # Get assigned groups
     assigned_groups = db.query(Group).filter(
@@ -51,6 +53,75 @@ def teacher_dashboard(
         Group.is_active == True
     ).order_by(Progress.last_practiced.desc()).limit(10).all()
 
+    # Also include Everest content for all teachers
+    EVEREST_COURSE_ID = 2
+    everest_course = db.query(Course).filter(
+        Course.id == EVEREST_COURSE_ID,
+        Course.is_active == True
+    ).first()
+    
+    everest_content = None
+    if everest_course:
+        # Get Everest modules
+        everest_modules = db.query(Module).filter(
+            Module.course_id == EVEREST_COURSE_ID,
+            Module.is_active == True
+        ).order_by(Module.order_index).all()
+        
+        everest_modules_data = []
+        total_everest_lessons = 0
+        total_everest_words = 0
+        
+        for module in everest_modules:
+            # Get lessons for this module
+            lessons = db.query(Lesson).filter(
+                Lesson.module_id == module.id,
+                Lesson.is_active == True
+            ).order_by(Lesson.order_index).all()
+            
+            lessons_data = []
+            for lesson in lessons:
+                # Count words in this lesson
+                word_count = db.query(Word).filter(
+                    Word.lesson_id == lesson.id,
+                    Word.is_active == True
+                ).count()
+                
+                lesson_data = {
+                    "id": lesson.id,
+                    "title": lesson.title,
+                    "description": lesson.description,
+                    "order_index": lesson.order_index,
+                    "word_count": word_count
+                }
+                lessons_data.append(lesson_data)
+                total_everest_words += word_count
+            
+            module_data = {
+                "id": module.id,
+                "title": module.title,
+                "description": module.description,
+                "order_index": module.order_index,
+                "lessons": lessons_data,
+                "lesson_count": len(lessons_data)
+            }
+            everest_modules_data.append(module_data)
+            total_everest_lessons += len(lessons_data)
+        
+        everest_content = {
+            "course": {
+                "id": everest_course.id,
+                "title": everest_course.title,
+                "description": everest_course.description
+            },
+            "modules": everest_modules_data,
+            "summary": {
+                "total_modules": len(everest_modules_data),
+                "total_lessons": total_everest_lessons,
+                "total_words": total_everest_words
+            }
+        }
+
     return APIResponse.success({
         "teacher": {
             "id": current_user["profile"].id,
@@ -71,7 +142,8 @@ def teacher_dashboard(
             "percentage": p.percentage,
             "completed": p.completed,
             "last_practiced": p.last_practiced
-        } for p in recent_progress]
+        } for p in recent_progress],
+        "everest_content": everest_content
     })
 
 
@@ -1038,3 +1110,5 @@ def change_teacher_password(
     db.commit()
     
     return APIResponse.success({"message": "Password updated successfully"})
+
+
