@@ -159,12 +159,23 @@ async def create_room(
         if room:
             room.questions = questions
             
-            # Join teacher to socket room
-            await sio.enter_room(teacher_socket_id, f"room_{room_code}")
+            # Join teacher to socket room only if they have a real socket connection
+            if teacher_socket_id != "fallback_socket_id":
+                try:
+                    await sio.enter_room(teacher_socket_id, f"room_{room_code}")
+                    print(f"✅ Teacher joined socket room_{room_code}")
+                except Exception as e:
+                    print(f"⚠️ Failed to join socket room: {e}")
+            else:
+                print(f"⚠️ Skipping socket room join (fallback mode)")
             
             # Notify about new public room
             if not request.is_locked:
-                await notify_public_rooms_update()
+                try:
+                    await notify_public_rooms_update()
+                    print(f"✅ Public rooms updated")
+                except Exception as e:
+                    print(f"⚠️ Failed to update public rooms: {e}")
             
             return APIResponse.success({
                 "room_code": room_code,
