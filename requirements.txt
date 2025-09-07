@@ -18,5 +18,5 @@ openpyxl==3.1.2
 APScheduler==3.10.4
 mutagen==1.47.0
 python-telegram-bot==20.7
-python-socketio==5.10.0
-aioredis==2.0.1
+python-socketio==5.8.0
+python-engineio==4.7.1

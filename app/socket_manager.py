@@ -13,11 +13,12 @@ from .models import User, Word, Lesson
 from .utils import verify_token
 import random
 
-# Create Socket.IO server
+# Create Socket.IO server with compatible settings
 sio = socketio.AsyncServer(
     cors_allowed_origins="*",
-    logger=True,
-    engineio_logger=True
+    logger=False,
+    engineio_logger=False,
+    async_mode='asgi'
 )
 
 # Store socket connections: socket_id -> user_info

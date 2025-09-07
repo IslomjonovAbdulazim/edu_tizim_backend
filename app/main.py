@@ -14,6 +14,9 @@ from .services import SchedulerService
 
 # Try to import Socket.IO (optional for now)
 try:
+    if os.getenv("DISABLE_SOCKETIO") == "true":
+        raise ImportError("Socket.IO manually disabled")
+    
     import socketio
     from .socket_manager import sio
     from .routers import quiz
