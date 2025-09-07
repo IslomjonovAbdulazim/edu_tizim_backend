@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-import socketio
 import os
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -9,10 +8,20 @@ import atexit
 
 from .database import engine, SessionLocal
 from .models import Base, User, UserRole
-from .routers import auth, super_admin, admin, teacher, content, telegram, student, quiz
+from .routers import auth, super_admin, admin, teacher, content, telegram, student
 from .utils import hash_password
 from .services import SchedulerService
-from .socket_manager import sio
+
+# Try to import Socket.IO (optional for now)
+try:
+    import socketio
+    from .socket_manager import sio
+    from .routers import quiz
+    SOCKETIO_AVAILABLE = True
+    print("✅ Socket.IO enabled")
+except ImportError as e:
+    SOCKETIO_AVAILABLE = False
+    print(f"⚠️ Socket.IO disabled: {e}")
 
 load_dotenv()
 
@@ -38,8 +47,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Create Socket.IO app AFTER CORS middleware
-socket_app = socketio.ASGIApp(sio, app)
+# Create Socket.IO app AFTER CORS middleware (if available)
+if SOCKETIO_AVAILABLE:
+    socket_app = socketio.ASGIApp(sio, app)
+    print("✅ Socket.IO app created")
+else:
+    socket_app = app
+    print("⚠️ Using FastAPI app without Socket.IO")
 
 
 # Mount static files - use persistent storage path
@@ -67,7 +81,13 @@ app.include_router(teacher.router, prefix="/api/teacher", tags=["Teacher"])
 app.include_router(content.router, prefix="/api/content", tags=["Content"])
 app.include_router(telegram.router, prefix="/api/telegram", tags=["Telegram Bot"])
 app.include_router(student.router, prefix="/api/student", tags=["Student"])
-app.include_router(quiz.router, prefix="/api/quiz", tags=["Quiz System"])
+
+# Include quiz router only if Socket.IO is available
+if SOCKETIO_AVAILABLE:
+    app.include_router(quiz.router, prefix="/api/quiz", tags=["Quiz System"])
+    print("✅ Quiz endpoints enabled")
+else:
+    print("⚠️ Quiz endpoints disabled (Socket.IO not available)")
 
 @app.get("/")
 def root():
@@ -123,6 +143,8 @@ def daily_countdown_task():
 
 def quiz_cleanup_task():
     """Background task to clean up old quiz rooms"""
+    if not SOCKETIO_AVAILABLE:
+        return
     try:
         from .quiz_models import cleanup_disconnected_rooms
         cleanup_disconnected_rooms()
@@ -151,6 +173,7 @@ scheduler.start()
 # Shutdown scheduler on app exit
 atexit.register(lambda: scheduler.shutdown())
 
-# For uvicorn, export the socket_app which includes both FastAPI and Socket.IO
-application = socket_app
+# For uvicorn compatibility, export both app and socket_app
+app = socket_app  # This makes uvicorn app.main:app work
+application = socket_app  # Alternative export name
 
