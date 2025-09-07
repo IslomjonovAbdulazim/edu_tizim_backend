@@ -50,6 +50,63 @@ def get_student_info(current_user: dict = Depends(get_student_user), db: Session
     
     user = current_user["user"]
     
+    # Auto-join student to Everest Learning Center if not already in it
+    EVEREST_CENTER_ID = 4
+    EVEREST_GROUP_ID = 4
+    
+    # Check if user is already in Everest Learning Center
+    everest_profile = db.query(LearningCenterProfile).filter(
+        LearningCenterProfile.user_id == user.id,
+        LearningCenterProfile.center_id == EVEREST_CENTER_ID,
+        LearningCenterProfile.is_active == True
+    ).first()
+    
+    if not everest_profile:
+        # Create profile in Everest Learning Center
+        try:
+            everest_profile = LearningCenterProfile(
+                user_id=user.id,
+                center_id=EVEREST_CENTER_ID,
+                full_name=user.phone or f"Student {user.id}",  # Use phone as name or default
+                role_in_center=UserRole.STUDENT,
+                is_active=True
+            )
+            db.add(everest_profile)
+            db.commit()
+            db.refresh(everest_profile)
+            
+            # Add student to Everest group
+            group_member = GroupMember(
+                group_id=EVEREST_GROUP_ID,
+                profile_id=everest_profile.id
+            )
+            db.add(group_member)
+            db.commit()
+            
+        except Exception as e:
+            db.rollback()
+            # If auto-join fails, continue without it (non-blocking)
+            pass
+    else:
+        # Check if already in Everest group, if not add them
+        everest_group_member = db.query(GroupMember).filter(
+            GroupMember.group_id == EVEREST_GROUP_ID,
+            GroupMember.profile_id == everest_profile.id
+        ).first()
+        
+        if not everest_group_member:
+            try:
+                group_member = GroupMember(
+                    group_id=EVEREST_GROUP_ID,
+                    profile_id=everest_profile.id
+                )
+                db.add(group_member)
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                # If group join fails, continue without it (non-blocking)
+                pass
+    
     # Get all learning center profiles for this student
     all_profiles = db.query(LearningCenterProfile).filter(
         LearningCenterProfile.user_id == user.id,
