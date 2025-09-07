@@ -26,17 +26,20 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Create Socket.IO app
-socket_app = socketio.ASGIApp(sio, app)
+# CORS middleware - restrict in production (MUST be before Socket.IO wrapping)
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
+print(f"✅ CORS allowed origins: {allowed_origins}")
 
-# CORS middleware - restrict in production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000").split(","),
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
     allow_headers=["*"],
 )
+
+# Create Socket.IO app AFTER CORS middleware
+socket_app = socketio.ASGIApp(sio, app)
 
 
 # Mount static files - use persistent storage path
