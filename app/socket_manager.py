@@ -30,9 +30,13 @@ user_sockets: Dict[int, str] = {}
 async def authenticate_socket(token: str) -> Optional[Dict]:
     """Authenticate user from JWT token"""
     try:
+        print(f"📱 🔍 Verifying token...")
         payload = verify_token(token)
         if not payload:
+            print(f"📱 ❌ Token verification failed")
             return None
+        
+        print(f"📱 ✅ Token verified, user_id: {payload.get('user_id')}")
         
         db = SessionLocal()
         try:
@@ -42,25 +46,29 @@ async def authenticate_socket(token: str) -> Optional[Dict]:
             ).first()
             
             if user:
+                print(f"📱 ✅ User found: {user.id} ({user.role.value})")
                 return {
                     "user_id": user.id,
                     "role": user.role.value,
                     "name": getattr(user, 'phone', f"User {user.id}") or f"User {user.id}"
                 }
+            else:
+                print(f"📱 ❌ User not found or inactive")
         finally:
             db.close()
     except Exception as e:
-        print(f"Socket auth error: {e}")
+        print(f"📱 ❌ Socket auth error: {e}")
     
     return None
 
 @sio.event
 async def connect(sid, environ):
     """Handle client connection"""
-    print(f"Client {sid} connected")
+    print(f"📱 Client {sid} connected")
     
     # Get auth token from query params
     query_string = environ.get('QUERY_STRING', '')
+    print(f"📱 Query string: {query_string}")
     token = None
     
     for param in query_string.split('&'):
@@ -69,16 +77,20 @@ async def connect(sid, environ):
             break
     
     if not token:
-        print(f"No token provided for {sid}")
+        print(f"📱 ❌ No token provided for {sid}")
         await sio.disconnect(sid)
         return
+    
+    print(f"📱 🔑 Token received: {token[:20]}...")
     
     # Authenticate user
     user_info = await authenticate_socket(token)
     if not user_info:
-        print(f"Authentication failed for {sid}")
+        print(f"📱 ❌ Authentication failed for {sid}")
         await sio.disconnect(sid)
         return
+    
+    print(f"📱 ✅ Authentication successful for {sid}")
     
     # Store connection
     connected_users[sid] = user_info
