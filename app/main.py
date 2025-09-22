@@ -53,6 +53,8 @@ app.add_middleware(
 # Create Socket.IO app AFTER CORS middleware (if available)
 if SOCKETIO_AVAILABLE:
     socket_app = socketio.ASGIApp(sio, app)
+    # Keep reference to original FastAPI app for state access
+    socket_app._fastapi_app = app
     print("✅ Socket.IO app created")
 else:
     socket_app = app
@@ -160,8 +162,12 @@ async def initialize_telegram_bot():
         print("🤖 Initializing Telegram bot...")
         bot = TelegramBot()
         
-        # Store bot instance globally for cleanup
-        app.state.telegram_bot = bot
+        # Store bot instance - handle both FastAPI and Socket.IO wrapped app
+        if hasattr(app, 'state'):
+            app.state.telegram_bot = bot
+        else:
+            # For Socket.IO wrapped app, store in the original FastAPI app
+            getattr(socket_app, '_fastapi_app', app).state.telegram_bot = bot
         
         # Initialize bot
         await bot.application.initialize()
@@ -183,20 +189,34 @@ async def initialize_telegram_bot():
             print(f"❌ Telegram bot initialization failed: {e}")
         
         # Don't crash the app, just disable bot
-        app.state.telegram_bot = None
+        try:
+            if hasattr(app, 'state'):
+                app.state.telegram_bot = None
+            else:
+                getattr(socket_app, '_fastapi_app', app).state.telegram_bot = None
+        except:
+            pass  # Ignore if we can't set state
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on shutdown"""
-    if hasattr(app.state, 'telegram_bot') and app.state.telegram_bot:
-        try:
+    try:
+        # Get bot instance from appropriate app state
+        bot = None
+        if hasattr(app, 'state') and hasattr(app.state, 'telegram_bot'):
             bot = app.state.telegram_bot
+        elif hasattr(socket_app, '_fastapi_app'):
+            fastapi_app = socket_app._fastapi_app
+            if hasattr(fastapi_app.state, 'telegram_bot'):
+                bot = fastapi_app.state.telegram_bot
+        
+        if bot:
             await bot.application.updater.stop()
             await bot.application.stop()
             await bot.application.shutdown()
             print("✅ Telegram bot stopped cleanly")
-        except Exception as e:
-            print(f"⚠️ Error stopping Telegram bot: {e}")
+    except Exception as e:
+        print(f"⚠️ Error stopping Telegram bot: {e}")
 
 
 def daily_countdown_task():
