@@ -52,6 +52,18 @@ async def run_bot():
         
         await stop_event.wait()
         
+    except Exception as e:
+        if "Conflict" in str(e):
+            print("❌ Bot conflict detected!")
+            print("🔍 Another bot instance is already running with this token.")
+            print("💡 Solutions:")
+            print("   1. Stop other bot instances (production/development)")
+            print("   2. Use different bot token for development") 
+            print("   3. Wait a few minutes and try again")
+            print(f"📝 Full error: {e}")
+        else:
+            print(f"❌ Unexpected bot error: {e}")
+            raise
     finally:
         print("🧹 Stopping bot...")
         await bot.application.updater.stop()

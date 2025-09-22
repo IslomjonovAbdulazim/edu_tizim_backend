@@ -104,9 +104,17 @@ def root():
 def health_check():
     return {"status": "healthy", "redis": "connected"}
 
-# Create super admin on startup
+# Startup events
 @app.on_event("startup")
+async def startup_event():
+    # Create super admin
+    await create_super_admin()
+    
+    # Initialize Telegram bot (optional)
+    await initialize_telegram_bot()
+
 async def create_super_admin():
+    """Create super admin on startup"""
     from .database import SessionLocal
     db = SessionLocal()
 
@@ -132,6 +140,63 @@ async def create_super_admin():
         print(f"❌ Error creating super admin: {e}")
     finally:
         db.close()
+
+async def initialize_telegram_bot():
+    """Initialize Telegram bot with conflict handling"""
+    # Skip if explicitly disabled
+    if os.getenv("DISABLE_TELEGRAM_BOT") == "true":
+        print("⚠️ Telegram bot disabled via DISABLE_TELEGRAM_BOT")
+        return
+    
+    # Skip if no token provided
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not token:
+        print("⚠️ Telegram bot disabled - no TELEGRAM_BOT_TOKEN provided")
+        return
+    
+    try:
+        from .telegram_bot import TelegramBot
+        
+        print("🤖 Initializing Telegram bot...")
+        bot = TelegramBot()
+        
+        # Store bot instance globally for cleanup
+        app.state.telegram_bot = bot
+        
+        # Initialize bot
+        await bot.application.initialize()
+        await bot.application.start()
+        
+        # Start polling with conflict handling
+        await bot.application.updater.start_polling(
+            drop_pending_updates=True,
+            allowed_updates=["message", "callback_query"]
+        )
+        
+        print("✅ Telegram bot started successfully")
+        
+    except Exception as e:
+        if "Conflict" in str(e):
+            print("⚠️ Telegram bot conflict - another instance is running")
+            print("💡 To fix: stop other instances or use DISABLE_TELEGRAM_BOT=true")
+        else:
+            print(f"❌ Telegram bot initialization failed: {e}")
+        
+        # Don't crash the app, just disable bot
+        app.state.telegram_bot = None
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    if hasattr(app.state, 'telegram_bot') and app.state.telegram_bot:
+        try:
+            bot = app.state.telegram_bot
+            await bot.application.updater.stop()
+            await bot.application.stop()
+            await bot.application.shutdown()
+            print("✅ Telegram bot stopped cleanly")
+        except Exception as e:
+            print(f"⚠️ Error stopping Telegram bot: {e}")
 
 
 def daily_countdown_task():
