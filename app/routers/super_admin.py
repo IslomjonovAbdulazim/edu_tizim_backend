@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, field_serializer
 from typing import List, Optional
 from datetime import datetime
+import os
+import requests
 
 from ..database import get_db
 from ..dependencies import get_super_admin_user
@@ -450,6 +453,11 @@ class UpdateWordRequest(BaseModel):
     order: Optional[int] = None
 
 
+class GenerateAudioRequest(BaseModel):
+    text: str
+    voice: str = "mickey"
+
+
 class CourseResponse(BaseModel):
     id: int
     title: str
@@ -881,3 +889,54 @@ async def upload_word_image(
     db.commit()
     
     return {"message": "Image uploaded successfully", "path": image_path}
+
+
+@router.post("/generate-audio")
+async def generate_audio(
+    request: GenerateAudioRequest,
+    current_user = Depends(get_super_admin_user)
+):
+    """Generate audio using Narakeet TTS (Super Admin only)"""
+    api_key = os.environ.get('NARAKEET')
+    
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="NARAKEET environment variable not set"
+        )
+    
+    url = f'https://api.narakeet.com/text-to-speech/m4a?voice={request.voice}'
+    
+    options = {
+        'headers': {
+            'Accept': 'application/octet-stream',
+            'Content-Type': 'text/plain',
+            'x-api-key': api_key,
+        },
+        'data': request.text.encode('utf8')
+    }
+    
+    try:
+        response = requests.post(url, **options)
+        response.raise_for_status()
+        
+        return Response(
+            content=response.content,
+            media_type="audio/m4a",
+            headers={
+                "Content-Disposition": "attachment; filename=generated_audio.m4a"
+            }
+        )
+        
+    except requests.exceptions.HTTPError as e:
+        error_message = f'HTTP error occurred: {e.response.status_code} - {e.response.reason}'
+        error_details = e.response.text if hasattr(e.response, 'text') else str(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f'{error_message}. Details: {error_details}'
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Audio generation failed: {str(e)}"
+        )
