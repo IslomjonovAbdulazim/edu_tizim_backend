@@ -146,6 +146,144 @@ Super Admin has full control over the entire system, managing all learning cente
 }
 ```
 
+## User Management
+
+Super admins can create and manage users (admins, teachers, students) across all learning centers:
+
+### Create User (Admin/Teacher/Student)
+`POST /api/v1/super-admin/users`
+
+**Request:**
+```json
+{
+  "phone": "+998901234567",
+  "name": "John Admin",
+  "role": "admin",
+  "learning_center_id": 1
+}
+```
+
+**Response:**
+```json
+{
+  "id": 123,
+  "phone": "+998901234567",
+  "name": "John Admin",
+  "role": "admin",
+  "learning_center_id": 1,
+  "coins": 0,
+  "is_active": true,
+  "created_at": "2024-01-15T10:30:00Z"
+}
+```
+
+### List All Users
+`GET /api/v1/super-admin/users?learning_center_id=1&role=admin&skip=0&limit=100`
+
+**Query Parameters:**
+- `learning_center_id` (optional): Filter by learning center
+- `role` (optional): Filter by role (admin, teacher, student)
+- `skip` (optional): Pagination offset
+- `limit` (optional): Items per page
+
+**Response:**
+```json
+[
+  {
+    "id": 123,
+    "phone": "+998901234567",
+    "name": "John Admin",
+    "role": "admin",
+    "learning_center_id": 1,
+    "coins": 0,
+    "is_active": true,
+    "created_at": "2024-01-15T10:30:00Z"
+  }
+]
+```
+
+### Get Specific User
+`GET /api/v1/super-admin/users/123`
+
+**Response:**
+```json
+{
+  "id": 123,
+  "phone": "+998901234567",
+  "name": "John Admin",
+  "role": "admin",
+  "learning_center_id": 1,
+  "coins": 0,
+  "is_active": true,
+  "created_at": "2024-01-15T10:30:00Z"
+}
+```
+
+### Update User
+`PUT /api/v1/super-admin/users/123`
+
+**Request:**
+```json
+{
+  "name": "Updated Admin Name",
+  "phone": "+998901234568",
+  "role": "admin",
+  "learning_center_id": 2
+}
+```
+
+**Response:**
+```json
+{
+  "id": 123,
+  "phone": "+998901234568",
+  "name": "Updated Admin Name",
+  "role": "admin",
+  "learning_center_id": 2,
+  "coins": 0,
+  "is_active": true,
+  "created_at": "2024-01-15T10:30:00Z"
+}
+```
+
+### Delete User
+`DELETE /api/v1/super-admin/users/123`
+
+**Response:**
+```json
+{
+  "message": "User deleted successfully"
+}
+```
+
+## Typical Workflow
+
+### Setting up a New Learning Center
+
+1. **Create Learning Center**
+```json
+POST /api/v1/super-admin/learning-centers
+{
+  "name": "New Learning Center",
+  "phone": "+998901234567",
+  "student_limit": 500,
+  "teacher_limit": 50,
+  "group_limit": 100,
+  "is_paid": true
+}
+```
+
+2. **Create Admin for the Center**
+```json
+POST /api/v1/super-admin/users
+{
+  "phone": "+998901234568",
+  "name": "Center Admin",
+  "role": "admin",
+  "learning_center_id": 1
+}
+```
+ 
 ## Content Management (Full Access)
 
 Super admins have **exclusive full access** to all content management operations across all learning centers:

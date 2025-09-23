@@ -5,8 +5,8 @@ from typing import List, Optional
 
 from ..database import get_db
 from ..dependencies import get_super_admin_user
-from ..models import LearningCenter, Course, Lesson, Word, WordDifficulty
-from ..services import storage_service, cache_service
+from ..models import LearningCenter, Course, Lesson, Word, WordDifficulty, User, UserRole
+from ..services import storage_service, cache_service, user_service
 
 
 router = APIRouter()
@@ -95,7 +95,10 @@ async def upload_center_logo(
     db: Session = Depends(get_db)
 ):
     """Upload logo for learning center"""
-    center = db.query(LearningCenter).filter(LearningCenter.id == center_id).first()
+    center = db.query(LearningCenter).filter(
+        LearningCenter.id == center_id,
+        LearningCenter.deleted_at.is_(None)
+    ).first()
     
     if not center:
         raise HTTPException(
@@ -121,7 +124,10 @@ async def update_learning_center(
     db: Session = Depends(get_db)
 ):
     """Update learning center details"""
-    center = db.query(LearningCenter).filter(LearningCenter.id == center_id).first()
+    center = db.query(LearningCenter).filter(
+        LearningCenter.id == center_id,
+        LearningCenter.deleted_at.is_(None)
+    ).first()
     
     if not center:
         raise HTTPException(
@@ -149,7 +155,10 @@ async def toggle_payment_status(
     db: Session = Depends(get_db)
 ):
     """Toggle payment status for learning center"""
-    center = db.query(LearningCenter).filter(LearningCenter.id == center_id).first()
+    center = db.query(LearningCenter).filter(
+        LearningCenter.id == center_id,
+        LearningCenter.deleted_at.is_(None)
+    ).first()
     
     if not center:
         raise HTTPException(
@@ -176,7 +185,10 @@ async def deactivate_learning_center(
     db: Session = Depends(get_db)
 ):
     """Deactivate learning center (soft delete)"""
-    center = db.query(LearningCenter).filter(LearningCenter.id == center_id).first()
+    center = db.query(LearningCenter).filter(
+        LearningCenter.id == center_id,
+        LearningCenter.deleted_at.is_(None)
+    ).first()
     
     if not center:
         raise HTTPException(
@@ -184,10 +196,212 @@ async def deactivate_learning_center(
             detail="Learning center not found"
         )
     
+    # Soft delete: mark as inactive and set deleted_at timestamp
+    from sqlalchemy.sql import func
     center.is_active = False
+    center.deleted_at = func.now()
     db.commit()
     
     return {"message": "Learning center deactivated successfully"}
+
+
+# User Management Schemas
+class CreateUserRequest(BaseModel):
+    phone: str
+    name: str
+    role: UserRole
+    learning_center_id: int
+
+
+class UpdateUserRequest(BaseModel):
+    phone: Optional[str] = None
+    name: Optional[str] = None
+    role: Optional[UserRole] = None
+    learning_center_id: Optional[int] = None
+
+
+class UserResponse(BaseModel):
+    id: int
+    phone: str
+    name: str
+    role: UserRole
+    learning_center_id: int
+    coins: int
+    is_active: bool
+    created_at: str
+    
+    class Config:
+        from_attributes = True
+
+
+# User Management Endpoints (Super Admin Only)
+
+@router.post("/users", response_model=UserResponse)
+async def create_user(
+    request: CreateUserRequest,
+    current_user = Depends(get_super_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new user (admin/teacher/student) for any learning center (Super Admin only)"""
+    # Verify learning center exists
+    center = db.query(LearningCenter).filter(
+        LearningCenter.id == request.learning_center_id
+    ).first()
+    
+    if not center:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Learning center not found"
+        )
+    
+    # Check if phone number is unique within learning center (exclude deleted users)
+    existing_user = db.query(User).filter(
+        User.phone == request.phone,
+        User.learning_center_id == request.learning_center_id,
+        User.deleted_at.is_(None)
+    ).first()
+    
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Phone number already exists in this learning center"
+        )
+    
+    user = user_service.create_user(
+        db=db,
+        phone=request.phone,
+        name=request.name,
+        role=request.role,
+        learning_center_id=request.learning_center_id
+    )
+    
+    return user
+
+
+@router.get("/users", response_model=List[UserResponse])
+async def list_all_users(
+    learning_center_id: Optional[int] = None,
+    role: Optional[UserRole] = None,
+    skip: int = 0,
+    limit: int = 100,
+    current_user = Depends(get_super_admin_user),
+    db: Session = Depends(get_db)
+):
+    """List all users across all learning centers (Super Admin only)"""
+    query = db.query(User).filter(User.deleted_at.is_(None))
+    
+    if learning_center_id:
+        query = query.filter(User.learning_center_id == learning_center_id)
+    
+    if role:
+        query = query.filter(User.role == role)
+    
+    users = query.offset(skip).limit(limit).all()
+    return users
+
+
+@router.get("/users/{user_id}", response_model=UserResponse)
+async def get_user(
+    user_id: int,
+    current_user = Depends(get_super_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get specific user details (Super Admin only)"""
+    user = db.query(User).filter(
+        User.id == user_id,
+        User.deleted_at.is_(None)
+    ).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    return user
+
+
+@router.put("/users/{user_id}", response_model=UserResponse)
+async def update_user(
+    user_id: int,
+    request: UpdateUserRequest,
+    current_user = Depends(get_super_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Update user details (Super Admin only)"""
+    user = db.query(User).filter(
+        User.id == user_id,
+        User.deleted_at.is_(None)
+    ).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Validate learning center if updating
+    if request.learning_center_id:
+        center = db.query(LearningCenter).filter(
+            LearningCenter.id == request.learning_center_id
+        ).first()
+        if not center:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Learning center not found"
+            )
+    
+    # Check phone uniqueness if updating phone (exclude deleted users)
+    if request.phone and request.phone != user.phone:
+        learning_center_id = request.learning_center_id or user.learning_center_id
+        existing_phone = db.query(User).filter(
+            User.phone == request.phone,
+            User.learning_center_id == learning_center_id,
+            User.id != user_id,
+            User.deleted_at.is_(None)
+        ).first()
+        
+        if existing_phone:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Phone number already exists in this learning center"
+            )
+    
+    # Update fields if provided
+    for field, value in request.dict(exclude_unset=True).items():
+        setattr(user, field, value)
+    
+    db.commit()
+    db.refresh(user)
+    
+    return user
+
+
+@router.delete("/users/{user_id}")
+async def delete_user(
+    user_id: int,
+    current_user = Depends(get_super_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Delete (deactivate) user (Super Admin only)"""
+    user = db.query(User).filter(
+        User.id == user_id,
+        User.deleted_at.is_(None)
+    ).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Soft delete: mark as inactive and set deleted_at timestamp
+    from sqlalchemy.sql import func
+    user.is_active = False
+    user.deleted_at = func.now()
+    db.commit()
+    
+    return {"message": "User deleted successfully"}
 
 
 # Content Management Schemas
@@ -332,7 +546,10 @@ async def update_course(
     db: Session = Depends(get_db)
 ):
     """Update course (Super Admin only)"""
-    course = db.query(Course).filter(Course.id == course_id).first()
+    course = db.query(Course).filter(
+        Course.id == course_id,
+        Course.deleted_at.is_(None)
+    ).first()
     
     if not course:
         raise HTTPException(
@@ -368,7 +585,10 @@ async def delete_course(
     db: Session = Depends(get_db)
 ):
     """Delete course (Super Admin only)"""
-    course = db.query(Course).filter(Course.id == course_id).first()
+    course = db.query(Course).filter(
+        Course.id == course_id,
+        Course.deleted_at.is_(None)
+    ).first()
     
     if not course:
         raise HTTPException(
@@ -376,7 +596,10 @@ async def delete_course(
             detail="Course not found"
         )
     
+    # Soft delete: mark as inactive and set deleted_at timestamp
+    from sqlalchemy.sql import func
     course.is_active = False
+    course.deleted_at = func.now()
     db.commit()
     
     return {"message": "Course deleted successfully"}
@@ -390,8 +613,11 @@ async def create_lesson(
     db: Session = Depends(get_db)
 ):
     """Create a new lesson (Super Admin only)"""
-    # Verify course exists
-    course = db.query(Course).filter(Course.id == course_id).first()
+    # Verify course exists and is not deleted
+    course = db.query(Course).filter(
+        Course.id == course_id,
+        Course.deleted_at.is_(None)
+    ).first()
     
     if not course:
         raise HTTPException(
@@ -439,7 +665,10 @@ async def update_lesson(
     db: Session = Depends(get_db)
 ):
     """Update lesson (Super Admin only)"""
-    lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
+    lesson = db.query(Lesson).filter(
+        Lesson.id == lesson_id,
+        Lesson.deleted_at.is_(None)
+    ).first()
     
     if not lesson:
         raise HTTPException(
@@ -468,7 +697,10 @@ async def delete_lesson(
     db: Session = Depends(get_db)
 ):
     """Delete lesson (Super Admin only)"""
-    lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
+    lesson = db.query(Lesson).filter(
+        Lesson.id == lesson_id,
+        Lesson.deleted_at.is_(None)
+    ).first()
     
     if not lesson:
         raise HTTPException(
