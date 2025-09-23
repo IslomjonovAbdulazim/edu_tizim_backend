@@ -902,7 +902,7 @@ async def generate_audio(
     if not api_key:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="NARAKEET environment variable not set"
+            detail=f"NARAKEET environment variable not set. Available keys: {list(os.environ.keys())[:10]}"
         )
     
     url = f'https://api.narakeet.com/text-to-speech/m4a?voice={request.voice}'
