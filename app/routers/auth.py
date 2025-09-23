@@ -133,7 +133,7 @@ async def get_learning_centers(db: Session = Depends(get_db)):
     # Cache for 10 minutes
     await cache_service.set_learning_centers(centers_dict, ttl=600)
     
-    return centers
+    return centers_dict
 
 
 @router.post("/super-admin/login", response_model=dict)
