@@ -464,6 +464,7 @@ class CourseResponse(BaseModel):
     title: str
     learning_center_id: int
     is_active: bool
+    lesson_count: int
     created_at: datetime
     
     @field_serializer('created_at')
@@ -480,6 +481,7 @@ class LessonResponse(BaseModel):
     content: Optional[str]
     order: int
     course_id: int
+    word_count: int
     created_at: datetime
     
     @field_serializer('created_at')
@@ -554,13 +556,37 @@ async def list_all_courses(
     db: Session = Depends(get_db)
 ):
     """List all courses across all learning centers (Super Admin only)"""
-    query = db.query(Course).filter(Course.deleted_at.is_(None))
+    from sqlalchemy import func
+    
+    # Get courses with lesson count
+    query = db.query(
+        Course.id,
+        Course.title,
+        Course.learning_center_id,
+        Course.is_active,
+        Course.created_at,
+        func.count(Lesson.id).label('lesson_count')
+    ).outerjoin(Lesson, (Lesson.course_id == Course.id) & (Lesson.deleted_at.is_(None))).filter(
+        Course.deleted_at.is_(None)
+    )
     
     if learning_center_id:
         query = query.filter(Course.learning_center_id == learning_center_id)
     
-    courses = query.offset(skip).limit(limit).all()
-    return courses
+    courses = query.group_by(Course.id).offset(skip).limit(limit).all()
+    
+    # Convert to dict format
+    return [
+        {
+            "id": course.id,
+            "title": course.title,
+            "learning_center_id": course.learning_center_id,
+            "is_active": course.is_active,
+            "lesson_count": course.lesson_count,
+            "created_at": course.created_at
+        }
+        for course in courses
+    ]
 
 
 @router.put("/content/courses/{course_id}", response_model=CourseResponse)
@@ -673,13 +699,39 @@ async def list_all_lessons(
     db: Session = Depends(get_db)
 ):
     """List all lessons (Super Admin only)"""
-    query = db.query(Lesson).filter(Lesson.deleted_at.is_(None))
+    from sqlalchemy import func
+    
+    # Get lessons with word count
+    query = db.query(
+        Lesson.id,
+        Lesson.title,
+        Lesson.content,
+        Lesson.order,
+        Lesson.course_id,
+        Lesson.created_at,
+        func.count(Word.id).label('word_count')
+    ).outerjoin(Word, (Word.lesson_id == Lesson.id) & (Word.deleted_at.is_(None))).filter(
+        Lesson.deleted_at.is_(None)
+    )
     
     if course_id:
         query = query.filter(Lesson.course_id == course_id)
     
-    lessons = query.order_by(Lesson.order).offset(skip).limit(limit).all()
-    return lessons
+    lessons = query.group_by(Lesson.id).order_by(Lesson.order).offset(skip).limit(limit).all()
+    
+    # Convert to dict format
+    return [
+        {
+            "id": lesson.id,
+            "title": lesson.title,
+            "content": lesson.content,
+            "order": lesson.order,
+            "course_id": lesson.course_id,
+            "word_count": lesson.word_count,
+            "created_at": lesson.created_at
+        }
+        for lesson in lessons
+    ]
 
 
 @router.put("/content/lessons/{lesson_id}", response_model=LessonResponse)
