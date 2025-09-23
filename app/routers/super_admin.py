@@ -118,6 +118,9 @@ async def upload_center_logo(
     center.logo = logo_path
     db.commit()
     
+    # Invalidate caches
+    await cache_service.invalidate_learning_centers()
+    
     return {"message": "Logo uploaded successfully", "path": logo_path}
 
 
