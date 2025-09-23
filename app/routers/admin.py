@@ -72,7 +72,14 @@ async def create_user(
     current_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
-    """Create a new user (student/teacher)"""
+    """Create a new user (student/teacher only)"""
+    # Admin cannot create other admin accounts
+    if request.role == UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin accounts can only be created by Super Admin"
+        )
+    
     user = user_service.create_user(
         db=db,
         phone=request.phone,
@@ -104,6 +111,28 @@ async def list_users(
     return users
 
 
+@router.get("/users/{user_id}", response_model=UserResponse)
+async def get_user(
+    user_id: int,
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get specific user details"""
+    user = db.query(User).filter(
+        User.id == user_id,
+        User.learning_center_id == current_user.learning_center_id,
+        User.deleted_at.is_(None)
+    ).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    return user
+
+
 @router.put("/users/{user_id}", response_model=UserResponse)
 async def update_user(
     user_id: int,
@@ -114,7 +143,8 @@ async def update_user(
     """Update user details"""
     user = db.query(User).filter(
         User.id == user_id,
-        User.learning_center_id == current_user.learning_center_id
+        User.learning_center_id == current_user.learning_center_id,
+        User.deleted_at.is_(None)
     ).first()
     
     if not user:
@@ -128,7 +158,8 @@ async def update_user(
         existing_phone = db.query(User).filter(
             User.phone == request.phone,
             User.learning_center_id == current_user.learning_center_id,
-            User.id != user_id
+            User.id != user_id,
+            User.deleted_at.is_(None)
         ).first()
         
         if existing_phone:
@@ -136,6 +167,13 @@ async def update_user(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Phone number already exists in this learning center"
             )
+    
+    # Admin cannot change user role to admin
+    if request.role == UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin role can only be assigned by Super Admin"
+        )
     
     # Update fields if provided
     if request.phone:
@@ -160,7 +198,8 @@ async def deactivate_user(
     """Deactivate a user (soft delete)"""
     user = db.query(User).filter(
         User.id == user_id,
-        User.learning_center_id == current_user.learning_center_id
+        User.learning_center_id == current_user.learning_center_id,
+        User.deleted_at.is_(None)
     ).first()
     
     if not user:
@@ -169,7 +208,9 @@ async def deactivate_user(
             detail="User not found"
         )
     
+    # Soft delete: mark as inactive and set deleted_at timestamp
     user.is_active = False
+    user.deleted_at = func.now()
     db.commit()
     
     return {"message": "User deactivated successfully"}
@@ -184,12 +225,13 @@ async def create_group(
     db: Session = Depends(get_db)
 ):
     """Create a new group"""
-    # Verify teacher exists and belongs to same learning center
+    # Verify teacher exists and belongs to same learning center (exclude deleted)
     teacher = db.query(User).filter(
         User.id == request.teacher_id,
         User.role == UserRole.TEACHER,
         User.learning_center_id == current_user.learning_center_id,
-        User.is_active == True
+        User.is_active == True,
+        User.deleted_at.is_(None)
     ).first()
     
     if not teacher:
@@ -198,11 +240,12 @@ async def create_group(
             detail="Teacher not found"
         )
     
-    # Verify course exists and belongs to same learning center
+    # Verify course exists and belongs to same learning center (exclude deleted)
     course = db.query(Course).filter(
         Course.id == request.course_id,
         Course.learning_center_id == current_user.learning_center_id,
-        Course.is_active == True
+        Course.is_active == True,
+        Course.deleted_at.is_(None)
     ).first()
     
     if not course:
@@ -251,6 +294,34 @@ async def list_groups(
     return groups
 
 
+@router.get("/groups/{group_id}", response_model=GroupResponse)
+async def get_group(
+    group_id: int,
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get specific group details"""
+    group = db.query(Group).filter(
+        Group.id == group_id,
+        Group.learning_center_id == current_user.learning_center_id,
+        Group.deleted_at.is_(None)
+    ).first()
+    
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Group not found"
+        )
+    
+    # Add student count
+    student_count = db.query(GroupStudent).filter(
+        GroupStudent.group_id == group.id
+    ).count()
+    group.student_count = student_count
+    
+    return group
+
+
 @router.put("/groups/{group_id}", response_model=GroupResponse)
 async def update_group(
     group_id: int,
@@ -261,7 +332,8 @@ async def update_group(
     """Update group details"""
     group = db.query(Group).filter(
         Group.id == group_id,
-        Group.learning_center_id == current_user.learning_center_id
+        Group.learning_center_id == current_user.learning_center_id,
+        Group.deleted_at.is_(None)
     ).first()
     
     if not group:
@@ -270,13 +342,14 @@ async def update_group(
             detail="Group not found"
         )
     
-    # Validate teacher if updating
+    # Validate teacher if updating (exclude deleted)
     if request.teacher_id:
         teacher = db.query(User).filter(
             User.id == request.teacher_id,
             User.role == UserRole.TEACHER,
             User.learning_center_id == current_user.learning_center_id,
-            User.is_active == True
+            User.is_active == True,
+            User.deleted_at.is_(None)
         ).first()
         
         if not teacher:
@@ -285,12 +358,13 @@ async def update_group(
                 detail="Teacher not found"
             )
     
-    # Validate course if updating
+    # Validate course if updating (exclude deleted)
     if request.course_id:
         course = db.query(Course).filter(
             Course.id == request.course_id,
             Course.learning_center_id == current_user.learning_center_id,
-            Course.is_active == True
+            Course.is_active == True,
+            Course.deleted_at.is_(None)
         ).first()
         
         if not course:
@@ -345,10 +419,11 @@ async def remove_student_from_group(
     db: Session = Depends(get_db)
 ):
     """Remove student from group"""
-    # Verify group belongs to same learning center
+    # Verify group belongs to same learning center (exclude deleted)
     group = db.query(Group).filter(
         Group.id == group_id,
-        Group.learning_center_id == current_user.learning_center_id
+        Group.learning_center_id == current_user.learning_center_id,
+        Group.deleted_at.is_(None)
     ).first()
     
     if not group:
@@ -384,7 +459,8 @@ async def delete_group(
     """Delete group (soft delete)"""
     group = db.query(Group).filter(
         Group.id == group_id,
-        Group.learning_center_id == current_user.learning_center_id
+        Group.learning_center_id == current_user.learning_center_id,
+        Group.deleted_at.is_(None)
     ).first()
     
     if not group:

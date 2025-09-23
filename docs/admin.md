@@ -11,7 +11,7 @@ Admins use phone verification like other users:
 
 ## User Management
 
-### Create User
+### Create User (Teachers/Students Only)
 `POST /api/v1/admin/users`
 
 **Request:**
@@ -22,6 +22,8 @@ Admins use phone verification like other users:
   "role": "teacher"
 }
 ```
+
+**Note**: Admins can only create `teacher` and `student` accounts. Admin accounts can only be created by Super Admin.
 
 **Response:**
 ```json
@@ -57,6 +59,22 @@ Admins use phone verification like other users:
     "created_at": "2024-01-10T09:15:00Z"
   }
 ]
+```
+
+### Get Specific User
+`GET /api/v1/admin/users/124`
+
+**Response:**
+```json
+{
+  "id": 124,
+  "phone": "+998901234568",
+  "name": "Jane Student",
+  "role": "student",
+  "coins": 250,
+  "is_active": true,
+  "created_at": "2024-01-10T09:15:00Z"
+}
 ```
 
 ### Update User
@@ -135,6 +153,21 @@ Admins use phone verification like other users:
     "created_at": "2024-01-15T11:00:00Z"
   }
 ]
+```
+
+### Get Specific Group
+`GET /api/v1/admin/groups/1`
+
+**Response:**
+```json
+{
+  "id": 1,
+  "name": "Beginner English A1",
+  "course_id": 1,
+  "teacher_id": 123,
+  "student_count": 15,
+  "created_at": "2024-01-15T11:00:00Z"
+}
 ```
 
 ### Update Group
@@ -242,7 +275,7 @@ Admins have **read-only access** to view content within their learning center:
 ### 403 Forbidden
 ```json
 {
-  "detail": "Not enough permissions"
+  "detail": "Admin accounts can only be created by Super Admin"
 }
 ```
 
