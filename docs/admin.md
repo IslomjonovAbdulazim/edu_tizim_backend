@@ -198,29 +198,16 @@ Admins use phone verification like other users:
 }
 ```
 
-## Content Management
+## Content Access (Read-Only)
 
-Admins have full access to content management endpoints:
+Admins have **read-only access** to view content within their learning center:
 
-### Course Management
-- `POST /api/v1/content/courses` - Create course
-- `GET /api/v1/content/courses` - List courses
-- `PUT /api/v1/content/courses/{id}` - Update course
-- `DELETE /api/v1/content/courses/{id}` - Delete course
+### View Course Content
+- `GET /api/v1/content/courses` - List courses in learning center
+- `GET /api/v1/content/courses/{id}/lessons` - View course lessons
+- `GET /api/v1/content/lessons/{id}/words` - View lesson words
 
-### Lesson Management
-- `POST /api/v1/content/courses/{id}/lessons` - Create lesson
-- `GET /api/v1/content/courses/{id}/lessons` - List lessons
-- `PUT /api/v1/content/lessons/{id}` - Update lesson
-- `DELETE /api/v1/content/lessons/{id}` - Delete lesson
-
-### Word Management
-- `POST /api/v1/content/lessons/{id}/words` - Create word
-- `GET /api/v1/content/lessons/{id}/words` - List words
-- `PUT /api/v1/content/words/{id}` - Update word
-- `DELETE /api/v1/content/words/{id}` - Delete word
-- `POST /api/v1/content/words/{id}/audio` - Upload audio
-- `POST /api/v1/content/words/{id}/image` - Upload image
+**Note**: Content creation, editing, and deletion is restricted to Super Admin only. Admins can only view existing content to help with group assignments and user management.
 
 ## Access Control
 

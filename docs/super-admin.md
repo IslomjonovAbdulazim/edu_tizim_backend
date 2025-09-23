@@ -146,13 +146,31 @@ Super Admin has full control over the entire system, managing all learning cente
 }
 ```
 
-## Content Management Access
+## Content Management (Full Access)
 
-Super admins have full access to all content management endpoints for any learning center:
+Super admins have **exclusive full access** to all content management operations across all learning centers:
 
-- All course management endpoints (`/api/v1/content/courses`)
-- All lesson management endpoints (`/api/v1/content/lessons`)
-- All word management endpoints (`/api/v1/content/words`)
+### Course Management
+- `POST /api/v1/content/courses` - Create course
+- `GET /api/v1/content/courses` - List all courses
+- `PUT /api/v1/content/courses/{id}` - Update course
+- `DELETE /api/v1/content/courses/{id}` - Delete course
+
+### Lesson Management
+- `POST /api/v1/content/courses/{id}/lessons` - Create lesson
+- `GET /api/v1/content/courses/{id}/lessons` - List lessons
+- `PUT /api/v1/content/lessons/{id}` - Update lesson
+- `DELETE /api/v1/content/lessons/{id}` - Delete lesson
+
+### Word Management
+- `POST /api/v1/content/lessons/{id}/words` - Create word
+- `GET /api/v1/content/lessons/{id}/words` - List words
+- `PUT /api/v1/content/words/{id}` - Update word
+- `DELETE /api/v1/content/words/{id}` - Delete word
+- `POST /api/v1/content/words/{id}/audio` - Upload audio files
+- `POST /api/v1/content/words/{id}/image` - Upload images
+
+**Note**: Only Super Admin can create, edit, or delete content. Other roles have read-only access to content within their learning center scope.
 
 ## Key Features
 
