@@ -456,7 +456,9 @@ class UpdateWordRequest(BaseModel):
 
 class GenerateAudioRequest(BaseModel):
     text: str
-    voice: Optional[str] = "mickey"
+    voice: Optional[str] = None
+    voice_speed: Optional[float] = None
+    voice_volume: Optional[str] = None
 
 
 class CourseResponse(BaseModel):
@@ -913,9 +915,20 @@ async def generate_audio(
                 detail="NARAKEET environment variable not set"
             )
         
-        # Use default voice if none provided or if empty
-        voice = request.voice if request.voice else "mickey"
-        url = f'https://api.narakeet.com/text-to-speech/m4a?voice={voice}'
+        # Build URL with optional parameters
+        url = 'https://api.narakeet.com/text-to-speech/m4a'
+        params = []
+        
+        if request.voice:
+            params.append(f'voice={request.voice}')
+        if request.voice_speed:
+            params.append(f'voice-speed={request.voice_speed}')
+        if request.voice_volume:
+            params.append(f'voice-volume={request.voice_volume}')
+            
+        if params:
+            url += '?' + '&'.join(params)
+            
         logger.info(f"Calling Narakeet API: {url}")
         
         options = {
