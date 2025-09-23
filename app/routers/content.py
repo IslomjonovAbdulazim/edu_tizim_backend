@@ -7,7 +7,6 @@ from datetime import datetime
 from ..database import get_db
 from ..dependencies import get_admin_user, get_teacher_user, get_student_user, get_current_user
 from ..models import User, Course, Lesson, Word, WordDifficulty
-from ..services import cache_service
 
 
 router = APIRouter()

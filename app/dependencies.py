@@ -7,7 +7,6 @@ import jwt
 from .database import get_db
 from .config import settings
 from .models.user import User
-from .services import cache_service
 
 
 security = HTTPBearer()
@@ -46,27 +45,8 @@ async def get_current_user(
             learning_center_id = None
         return SuperAdmin()
     
-    # Try to get user from cache first
-    cached_user = await cache_service.get_user(user_id)
-    if cached_user:
-        # Create user object from cached data
-        user = User()
-        for key, value in cached_user.items():
-            setattr(user, key, value)
-    else:
-        user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
-        if user:
-            # Cache user data for 30 minutes
-            user_dict = {
-                "id": user.id,
-                "phone": user.phone,
-                "name": user.name,
-                "role": user.role,
-                "learning_center_id": user.learning_center_id,
-                "coins": user.coins,
-                "is_active": user.is_active
-            }
-            await cache_service.set_user(user_id, user_dict, ttl=1800)
+    # Get user from database
+    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
     
     if user is None:
         raise credentials_exception

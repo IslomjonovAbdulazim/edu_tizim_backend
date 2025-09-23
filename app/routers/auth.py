@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import List
 
 from ..database import get_db
-from ..services import auth_service, cache_service
+from ..services import auth_service
 from ..models import LearningCenter
 from ..config import settings
 

@@ -16,7 +16,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
-# Redis connection
+# Redis connection (for auth verification codes only)
 redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
 
 

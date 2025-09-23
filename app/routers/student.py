@@ -5,7 +5,6 @@ from typing import List
 from ..database import get_db
 from ..dependencies import get_student_user
 from ..models import User, LessonProgress, Leaderboard
-from ..services import cache_service
 
 
 router = APIRouter()
@@ -17,13 +16,6 @@ async def get_available_courses(
     db: Session = Depends(get_db)
 ):
     """Get courses available to student"""
-    cache_key = f"student_courses:{current_user.learning_center_id}"
-    
-    # Try cache first
-    cached_courses = await cache_service.get(cache_key)
-    if cached_courses:
-        return cached_courses
-    
     # Get courses from student's learning center
     from ..models import Course
     
@@ -44,8 +36,6 @@ async def get_available_courses(
         }
         for c in courses
     ]
-    
-    await cache_service.set(cache_key, courses_dict, ttl=1800)
     
     return courses_dict
 
@@ -72,16 +62,12 @@ async def get_leaderboard(
     db: Session = Depends(get_db)
 ):
     """Get learning center leaderboard"""
-    # Try cache first
-    cached_leaderboard = await cache_service.get_leaderboard(current_user.learning_center_id)
-    if cached_leaderboard:
-        return cached_leaderboard
-    
+    # Get leaderboard from database
     leaderboard = db.query(Leaderboard).filter(
         Leaderboard.learning_center_id == current_user.learning_center_id
     ).order_by(Leaderboard.rank).limit(10).all()
     
-    # Convert to dict and cache for 15 minutes
+    # Convert to dict
     leaderboard_dict = [
         {
             "id": l.id,
@@ -92,8 +78,6 @@ async def get_leaderboard(
         }
         for l in leaderboard
     ]
-    
-    await cache_service.set_leaderboard(current_user.learning_center_id, leaderboard_dict)
     
     return leaderboard_dict
 

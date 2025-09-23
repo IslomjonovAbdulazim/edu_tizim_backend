@@ -5,8 +5,6 @@ import os
 
 from .config import settings
 from .database import engine, Base
-from .middleware.cache_middleware import CacheHeadersMiddleware
-
 # Create tables
 Base.metadata.create_all(bind=engine)
 
@@ -15,9 +13,6 @@ app = FastAPI(
     version=settings.VERSION,
     description="API for Language Learning Centers",
 )
-
-# Cache headers middleware
-app.add_middleware(CacheHeadersMiddleware)
 
 # CORS middleware
 app.add_middleware(

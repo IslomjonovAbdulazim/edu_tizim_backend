@@ -7,7 +7,7 @@ from datetime import datetime
 from ..database import get_db
 from ..dependencies import get_super_admin_user
 from ..models import LearningCenter, Course, Lesson, Word, WordDifficulty, User, UserRole
-from ..services import storage_service, cache_service, user_service
+from ..services import storage_service, user_service
 
 
 router = APIRouter()
@@ -71,8 +71,6 @@ async def create_learning_center(
     db.commit()
     db.refresh(center)
     
-    # Invalidate learning centers cache
-    await cache_service.invalidate_learning_centers()
     
     return center
 
@@ -119,8 +117,6 @@ async def upload_center_logo(
     center.logo = logo_path
     db.commit()
     
-    # Invalidate cache - next request will fetch fresh data from DB
-    await cache_service.invalidate_learning_centers()
     
     return {"message": "Logo uploaded successfully", "path": logo_path}
 
@@ -151,8 +147,6 @@ async def update_learning_center(
     db.commit()
     db.refresh(center)
     
-    # Invalidate cache - next request will fetch fresh data from DB
-    await cache_service.invalidate_learning_centers()
     
     return center
 
@@ -178,8 +172,6 @@ async def toggle_payment_status(
     center.is_paid = not center.is_paid
     db.commit()
     
-    # Invalidate cache - next request will fetch fresh data from DB
-    await cache_service.invalidate_learning_centers()
     
     return {
         "message": f"Payment status {'enabled' if center.is_paid else 'disabled'}",
@@ -540,7 +532,6 @@ async def create_course(
     db.refresh(course)
     
     # Invalidate course cache
-    await cache_service.delete_pattern(f"student_courses:{request.learning_center_id}")
     
     return course
 
