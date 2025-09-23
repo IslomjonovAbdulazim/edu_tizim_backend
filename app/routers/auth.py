@@ -114,8 +114,7 @@ async def get_learning_centers(db: Session = Depends(get_db)):
     if cached_centers:
         return cached_centers
     
-    # Fetch from database with fresh transaction
-    db.commit()  # Ensure we see latest committed data
+    # Fetch from database
     centers = db.query(LearningCenter).filter(
         LearningCenter.is_active == True,
         LearningCenter.deleted_at.is_(None)
@@ -131,8 +130,8 @@ async def get_learning_centers(db: Session = Depends(get_db)):
         for c in centers
     ]
     
-    # Cache for shorter time to reduce stale data impact
-    await cache_service.set_learning_centers(centers_dict, ttl=300)  # 5 minutes instead of 10
+    # Cache for 10 minutes
+    await cache_service.set_learning_centers(centers_dict, ttl=600)
     
     return centers_dict
 
