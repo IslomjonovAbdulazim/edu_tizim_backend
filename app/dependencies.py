@@ -70,7 +70,11 @@ async def get_current_user(
     if user is None:
         raise credentials_exception
     
-    # Check if learning center is paid
+    # Skip payment check for super admin (they have system-wide access)
+    if getattr(user, 'role', None) == "super_admin":
+        return user
+    
+    # Check if learning center is paid (for regular users only)
     from .models import LearningCenter
     learning_center = db.query(LearningCenter).filter(
         LearningCenter.id == user.learning_center_id
