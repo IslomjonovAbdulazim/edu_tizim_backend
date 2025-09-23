@@ -15,7 +15,8 @@ from .sms_service import sms_service
 class AuthService:
     def __init__(self):
         self.redis = get_redis()
-    
+
+
     async def send_verification_code(self, phone: str, learning_center_id: int) -> bool:
         """Send verification code to phone number"""
         # Generate verification code
