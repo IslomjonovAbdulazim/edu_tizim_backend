@@ -118,8 +118,25 @@ async def upload_center_logo(
     center.logo = logo_path
     db.commit()
     
-    # Invalidate caches
+    # Invalidate and warm cache with fresh data
     await cache_service.invalidate_learning_centers()
+    
+    # Immediately warm cache with updated data
+    centers = db.query(LearningCenter).filter(
+        LearningCenter.is_active == True,
+        LearningCenter.deleted_at.is_(None)
+    ).all()
+    
+    centers_dict = [
+        {
+            "id": c.id,
+            "name": c.name,
+            "logo": c.logo
+        }
+        for c in centers
+    ]
+    
+    await cache_service.set_learning_centers(centers_dict, ttl=300)
     
     return {"message": "Logo uploaded successfully", "path": logo_path}
 
@@ -150,8 +167,25 @@ async def update_learning_center(
     db.commit()
     db.refresh(center)
     
-    # Invalidate caches
+    # Invalidate and warm cache with fresh data
     await cache_service.invalidate_learning_centers()
+    
+    # Immediately warm cache with updated data
+    centers = db.query(LearningCenter).filter(
+        LearningCenter.is_active == True,
+        LearningCenter.deleted_at.is_(None)
+    ).all()
+    
+    centers_dict = [
+        {
+            "id": c.id,
+            "name": c.name,
+            "logo": c.logo
+        }
+        for c in centers
+    ]
+    
+    await cache_service.set_learning_centers(centers_dict, ttl=300)
     
     return center
 
@@ -177,8 +211,25 @@ async def toggle_payment_status(
     center.is_paid = not center.is_paid
     db.commit()
     
-    # Invalidate caches
+    # Invalidate and warm cache with fresh data
     await cache_service.invalidate_learning_centers()
+    
+    # Immediately warm cache with updated data
+    centers = db.query(LearningCenter).filter(
+        LearningCenter.is_active == True,
+        LearningCenter.deleted_at.is_(None)
+    ).all()
+    
+    centers_dict = [
+        {
+            "id": c.id,
+            "name": c.name,
+            "logo": c.logo
+        }
+        for c in centers
+    ]
+    
+    await cache_service.set_learning_centers(centers_dict, ttl=300)
     
     return {
         "message": f"Payment status {'enabled' if center.is_paid else 'disabled'}",
