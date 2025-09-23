@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from ..database import get_db
 from ..dependencies import get_super_admin_user
-from ..models import LearningCenter
+from ..models import LearningCenter, Course, Lesson, Word, WordDifficulty
 from ..services import storage_service, cache_service
 
 
@@ -188,3 +188,448 @@ async def deactivate_learning_center(
     db.commit()
     
     return {"message": "Learning center deactivated successfully"}
+
+
+# Content Management Schemas
+class CreateCourseRequest(BaseModel):
+    title: str
+    learning_center_id: int
+
+
+class CreateLessonRequest(BaseModel):
+    title: str
+    content: Optional[str] = None
+    order: int
+
+
+class CreateWordRequest(BaseModel):
+    word: str
+    translation: str
+    definition: Optional[str] = None
+    sentence: Optional[str] = None
+    difficulty: WordDifficulty
+    order: int
+
+
+class UpdateCourseRequest(BaseModel):
+    title: Optional[str] = None
+    learning_center_id: Optional[int] = None
+
+
+class UpdateLessonRequest(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    order: Optional[int] = None
+
+
+class UpdateWordRequest(BaseModel):
+    word: Optional[str] = None
+    translation: Optional[str] = None
+    definition: Optional[str] = None
+    sentence: Optional[str] = None
+    difficulty: Optional[WordDifficulty] = None
+    order: Optional[int] = None
+
+
+class CourseResponse(BaseModel):
+    id: int
+    title: str
+    learning_center_id: int
+    is_active: bool
+    created_at: str
+    
+    class Config:
+        from_attributes = True
+
+
+class LessonResponse(BaseModel):
+    id: int
+    title: str
+    content: Optional[str]
+    order: int
+    course_id: int
+    created_at: str
+    
+    class Config:
+        from_attributes = True
+
+
+class WordResponse(BaseModel):
+    id: int
+    word: str
+    translation: str
+    definition: Optional[str]
+    sentence: Optional[str]
+    difficulty: WordDifficulty
+    audio: Optional[str]
+    image: Optional[str]
+    lesson_id: int
+    order: int
+    created_at: str
+    
+    class Config:
+        from_attributes = True
+
+
+# Content Management Endpoints (Super Admin Only)
+
+@router.post("/content/courses", response_model=CourseResponse)
+async def create_course(
+    request: CreateCourseRequest,
+    current_user = Depends(get_super_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new course (Super Admin only)"""
+    # Verify learning center exists
+    center = db.query(LearningCenter).filter(
+        LearningCenter.id == request.learning_center_id
+    ).first()
+    
+    if not center:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Learning center not found"
+        )
+    
+    course = Course(
+        title=request.title,
+        learning_center_id=request.learning_center_id
+    )
+    
+    db.add(course)
+    db.commit()
+    db.refresh(course)
+    
+    # Invalidate course cache
+    await cache_service.delete_pattern(f"student_courses:{request.learning_center_id}")
+    
+    return course
+
+
+@router.get("/content/courses", response_model=List[CourseResponse])
+async def list_all_courses(
+    learning_center_id: Optional[int] = None,
+    skip: int = 0,
+    limit: int = 100,
+    current_user = Depends(get_super_admin_user),
+    db: Session = Depends(get_db)
+):
+    """List all courses across all learning centers (Super Admin only)"""
+    query = db.query(Course).filter(Course.deleted_at.is_(None))
+    
+    if learning_center_id:
+        query = query.filter(Course.learning_center_id == learning_center_id)
+    
+    courses = query.offset(skip).limit(limit).all()
+    return courses
+
+
+@router.put("/content/courses/{course_id}", response_model=CourseResponse)
+async def update_course(
+    course_id: int,
+    request: UpdateCourseRequest,
+    current_user = Depends(get_super_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Update course (Super Admin only)"""
+    course = db.query(Course).filter(Course.id == course_id).first()
+    
+    if not course:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Course not found"
+        )
+    
+    # Update fields if provided
+    if request.title:
+        course.title = request.title
+    if request.learning_center_id:
+        # Verify new learning center exists
+        center = db.query(LearningCenter).filter(
+            LearningCenter.id == request.learning_center_id
+        ).first()
+        if not center:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Learning center not found"
+            )
+        course.learning_center_id = request.learning_center_id
+    
+    db.commit()
+    db.refresh(course)
+    
+    return course
+
+
+@router.delete("/content/courses/{course_id}")
+async def delete_course(
+    course_id: int,
+    current_user = Depends(get_super_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Delete course (Super Admin only)"""
+    course = db.query(Course).filter(Course.id == course_id).first()
+    
+    if not course:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Course not found"
+        )
+    
+    course.is_active = False
+    db.commit()
+    
+    return {"message": "Course deleted successfully"}
+
+
+@router.post("/content/courses/{course_id}/lessons", response_model=LessonResponse)
+async def create_lesson(
+    course_id: int,
+    request: CreateLessonRequest,
+    current_user = Depends(get_super_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new lesson (Super Admin only)"""
+    # Verify course exists
+    course = db.query(Course).filter(Course.id == course_id).first()
+    
+    if not course:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Course not found"
+        )
+    
+    lesson = Lesson(
+        title=request.title,
+        content=request.content,
+        order=request.order,
+        course_id=course_id
+    )
+    
+    db.add(lesson)
+    db.commit()
+    db.refresh(lesson)
+    
+    return lesson
+
+
+@router.get("/content/lessons", response_model=List[LessonResponse])
+async def list_all_lessons(
+    course_id: Optional[int] = None,
+    skip: int = 0,
+    limit: int = 100,
+    current_user = Depends(get_super_admin_user),
+    db: Session = Depends(get_db)
+):
+    """List all lessons (Super Admin only)"""
+    query = db.query(Lesson).filter(Lesson.deleted_at.is_(None))
+    
+    if course_id:
+        query = query.filter(Lesson.course_id == course_id)
+    
+    lessons = query.order_by(Lesson.order).offset(skip).limit(limit).all()
+    return lessons
+
+
+@router.put("/content/lessons/{lesson_id}", response_model=LessonResponse)
+async def update_lesson(
+    lesson_id: int,
+    request: UpdateLessonRequest,
+    current_user = Depends(get_super_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Update lesson (Super Admin only)"""
+    lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
+    
+    if not lesson:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Lesson not found"
+        )
+    
+    # Update fields if provided
+    if request.title:
+        lesson.title = request.title
+    if request.content is not None:
+        lesson.content = request.content
+    if request.order:
+        lesson.order = request.order
+    
+    db.commit()
+    db.refresh(lesson)
+    
+    return lesson
+
+
+@router.delete("/content/lessons/{lesson_id}")
+async def delete_lesson(
+    lesson_id: int,
+    current_user = Depends(get_super_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Delete lesson (Super Admin only)"""
+    lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
+    
+    if not lesson:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Lesson not found"
+        )
+    
+    from sqlalchemy.sql import func
+    lesson.deleted_at = func.now()
+    db.commit()
+    
+    return {"message": "Lesson deleted successfully"}
+
+
+@router.post("/content/lessons/{lesson_id}/words", response_model=WordResponse)
+async def create_word(
+    lesson_id: int,
+    request: CreateWordRequest,
+    current_user = Depends(get_super_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new word (Super Admin only)"""
+    # Verify lesson exists
+    lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
+    
+    if not lesson:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Lesson not found"
+        )
+    
+    word = Word(
+        word=request.word,
+        translation=request.translation,
+        definition=request.definition,
+        sentence=request.sentence,
+        difficulty=request.difficulty,
+        order=request.order,
+        lesson_id=lesson_id
+    )
+    
+    db.add(word)
+    db.commit()
+    db.refresh(word)
+    
+    return word
+
+
+@router.get("/content/words", response_model=List[WordResponse])
+async def list_all_words(
+    lesson_id: Optional[int] = None,
+    skip: int = 0,
+    limit: int = 100,
+    current_user = Depends(get_super_admin_user),
+    db: Session = Depends(get_db)
+):
+    """List all words (Super Admin only)"""
+    query = db.query(Word).filter(Word.deleted_at.is_(None))
+    
+    if lesson_id:
+        query = query.filter(Word.lesson_id == lesson_id)
+    
+    words = query.order_by(Word.order).offset(skip).limit(limit).all()
+    return words
+
+
+@router.put("/content/words/{word_id}", response_model=WordResponse)
+async def update_word(
+    word_id: int,
+    request: UpdateWordRequest,
+    current_user = Depends(get_super_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Update word (Super Admin only)"""
+    word = db.query(Word).filter(Word.id == word_id).first()
+    
+    if not word:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Word not found"
+        )
+    
+    # Update fields if provided
+    for field, value in request.dict(exclude_unset=True).items():
+        setattr(word, field, value)
+    
+    db.commit()
+    db.refresh(word)
+    
+    return word
+
+
+@router.delete("/content/words/{word_id}")
+async def delete_word(
+    word_id: int,
+    current_user = Depends(get_super_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Delete word (Super Admin only)"""
+    word = db.query(Word).filter(Word.id == word_id).first()
+    
+    if not word:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Word not found"
+        )
+    
+    from sqlalchemy.sql import func
+    word.deleted_at = func.now()
+    db.commit()
+    
+    return {"message": "Word deleted successfully"}
+
+
+@router.post("/content/words/{word_id}/audio")
+async def upload_word_audio(
+    word_id: int,
+    file: UploadFile = File(...),
+    current_user = Depends(get_super_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Upload audio for a word (Super Admin only)"""
+    word = db.query(Word).filter(Word.id == word_id).first()
+    
+    if not word:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Word not found"
+        )
+    
+    # Save audio file
+    audio_path = await storage_service.save_audio(file, word_id)
+    
+    # Update word with audio path
+    word.audio = audio_path
+    db.commit()
+    
+    return {"message": "Audio uploaded successfully", "path": audio_path}
+
+
+@router.post("/content/words/{word_id}/image")
+async def upload_word_image(
+    word_id: int,
+    file: UploadFile = File(...),
+    current_user = Depends(get_super_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Upload image for a word (Super Admin only)"""
+    word = db.query(Word).filter(Word.id == word_id).first()
+    
+    if not word:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Word not found"
+        )
+    
+    # Save image file
+    image_path = await storage_service.save_image(file, word_id)
+    
+    # Update word with image path
+    word.image = image_path
+    db.commit()
+    
+    return {"message": "Image uploaded successfully", "path": image_path}
