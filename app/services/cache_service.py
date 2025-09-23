@@ -1,5 +1,6 @@
 import json
 import hashlib
+import inspect
 from typing import Any, Optional, List, Union
 from functools import wraps
 import logging
@@ -30,7 +31,7 @@ class CacheService:
     async def get(self, key: str) -> Optional[Any]:
         """Get value from cache"""
         try:
-            value = self.redis.get(key)
+            value = await self.redis.get(key)
             if value:
                 return json.loads(value)
             return None
@@ -42,7 +43,7 @@ class CacheService:
         """Set value in cache with TTL in seconds"""
         try:
             serialized = json.dumps(value, default=str)
-            self.redis.setex(key, ttl, serialized)
+            await self.redis.setex(key, ttl, serialized)
             return True
         except Exception as e:
             logger.error(f"Cache set error for key {key}: {e}")
@@ -51,19 +52,31 @@ class CacheService:
     async def delete(self, key: str) -> bool:
         """Delete key from cache"""
         try:
-            self.redis.delete(key)
+            await self.redis.delete(key)
             return True
         except Exception as e:
             logger.error(f"Cache delete error for key {key}: {e}")
             return False
     
     async def delete_pattern(self, pattern: str) -> int:
-        """Delete all keys matching pattern"""
+        """Delete all keys matching pattern using safe scan_iter"""
         try:
-            keys = self.redis.keys(pattern)
-            if keys:
-                return self.redis.delete(*keys)
-            return 0
+            deleted_count = 0
+            batch = []
+            batch_size = 100  # Process in batches to avoid blocking
+            
+            async for key in self.redis.scan_iter(match=pattern):
+                batch.append(key)
+                if len(batch) >= batch_size:
+                    if batch:
+                        deleted_count += await self.redis.delete(*batch)
+                        batch = []
+            
+            # Delete remaining keys
+            if batch:
+                deleted_count += await self.redis.delete(*batch)
+            
+            return deleted_count
         except Exception as e:
             logger.error(f"Cache delete pattern error for {pattern}: {e}")
             return 0
@@ -114,10 +127,17 @@ class CacheService:
         """Cache lesson words for 1 hour"""
         return await self.set(f"lesson_words:{lesson_id}", words, ttl)
     
-    async def invalidate_course_content(self, course_id: int):
+    async def invalidate_course_content(self, course_id: int, lesson_ids: List[int] = None):
         """Invalidate all course-related content"""
         await self.delete_pattern(f"course_lessons:{course_id}")
-        await self.delete_pattern(f"lesson_words:*")  # Could be more specific
+        
+        # If specific lesson IDs provided, invalidate only those
+        if lesson_ids:
+            for lesson_id in lesson_ids:
+                await self.delete(f"lesson_words:{lesson_id}")
+        else:
+            # Fallback: invalidate all lesson words (less efficient)
+            await self.delete_pattern(f"lesson_words:*")
     
     # Progress caching
     async def get_student_progress(self, student_id: int, lesson_id: int) -> Optional[dict]:
@@ -160,10 +180,23 @@ def cache_result(prefix: str, ttl: int = 300, key_args: List[str] = None):
         async def wrapper(*args, **kwargs):
             # Generate cache key
             if key_args:
+                # Map positional args to parameter names
+                sig = inspect.signature(func)
+                param_names = list(sig.parameters.keys())
+                
+                # Create combined kwargs from args and kwargs
+                bound_args = {}
+                for i, arg in enumerate(args):
+                    if i < len(param_names):
+                        bound_args[param_names[i]] = arg
+                bound_args.update(kwargs)
+                
+                # Extract specified key arguments
                 cache_key_parts = []
                 for arg_name in key_args:
-                    if arg_name in kwargs:
-                        cache_key_parts.append(str(kwargs[arg_name]))
+                    if arg_name in bound_args:
+                        cache_key_parts.append(str(bound_args[arg_name]))
+                
                 cache_key = cache_service._generate_key(prefix, *cache_key_parts)
             else:
                 cache_key = cache_service._generate_key(prefix, *args, **kwargs)
@@ -176,8 +209,9 @@ def cache_result(prefix: str, ttl: int = 300, key_args: List[str] = None):
             
             # Execute function and cache result
             result = await func(*args, **kwargs)
-            await cache_service.set(cache_key, result, ttl)
-            logger.debug(f"Cache miss for {cache_key}, result cached")
+            if result is not None:  # Only cache non-None results
+                await cache_service.set(cache_key, result, ttl)
+                logger.debug(f"Cache miss for {cache_key}, result cached")
             
             return result
         return wrapper

@@ -28,12 +28,12 @@ class AuthService:
         
         # Store in Redis with 5 minutes expiry
         key = f"verification:{phone}:{learning_center_id}"
-        self.redis.setex(key, 300, code)  # 5 minutes
+        await self.redis.setex(key, 300, code)  # 5 minutes
         
         # Send SMS
         return await sms_service.send_verification_code(phone, code)
     
-    def verify_code_and_login(
+    async def verify_code_and_login(
         self, 
         phone: str, 
         code: str, 
@@ -43,7 +43,7 @@ class AuthService:
         """Verify code and return user with tokens"""
         # Check verification code
         key = f"verification:{phone}:{learning_center_id}"
-        stored_code = self.redis.get(key)
+        stored_code = await self.redis.get(key)
         
         if not stored_code or stored_code != code:
             raise HTTPException(
@@ -65,7 +65,7 @@ class AuthService:
             )
         
         # Delete verification code
-        self.redis.delete(key)
+        await self.redis.delete(key)
         
         # Generate tokens
         access_token = self._create_access_token(user.id)
