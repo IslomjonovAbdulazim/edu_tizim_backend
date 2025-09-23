@@ -109,18 +109,13 @@ async def refresh_token(
 @router.get("/learning-centers", response_model=List[LearningCenterResponse])
 async def get_learning_centers(db: Session = Depends(get_db)):
     """Get all active learning centers for dropdown selection"""
-    # Try to get from cache first
-    cached_centers = await cache_service.get_learning_centers()
-    if cached_centers:
-        return cached_centers
-    
-    # Fetch from database
+    # CACHING DISABLED - Always fetch from database
     centers = db.query(LearningCenter).filter(
         LearningCenter.is_active == True,
         LearningCenter.deleted_at.is_(None)
     ).all()
     
-    # Convert to dict for caching
+    # Convert to dict
     centers_dict = [
         {
             "id": c.id,
@@ -129,9 +124,6 @@ async def get_learning_centers(db: Session = Depends(get_db)):
         }
         for c in centers
     ]
-    
-    # Cache for 10 minutes
-    await cache_service.set_learning_centers(centers_dict, ttl=600)
     
     return centers_dict
 

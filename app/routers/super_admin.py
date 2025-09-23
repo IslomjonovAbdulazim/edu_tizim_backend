@@ -85,6 +85,7 @@ async def list_learning_centers(
     db: Session = Depends(get_db)
 ):
     """List all learning centers"""
+    # CACHING DISABLED - Always fetch from database
     centers = db.query(LearningCenter).filter(
         LearningCenter.deleted_at.is_(None)
     ).offset(skip).limit(limit).all()
