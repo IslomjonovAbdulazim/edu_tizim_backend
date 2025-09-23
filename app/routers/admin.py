@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
+from datetime import datetime
 
 from ..database import get_db
 from ..dependencies import get_admin_user
@@ -26,7 +27,11 @@ class UserResponse(BaseModel):
     role: UserRole
     coins: int
     is_active: bool
-    created_at: str
+    created_at: datetime
+    
+    @field_serializer('created_at')
+    def serialize_created_at(self, v):
+        return v.isoformat() + 'Z' if v else None
     
     class Config:
         from_attributes = True
@@ -44,7 +49,11 @@ class GroupResponse(BaseModel):
     course_id: int
     teacher_id: int
     student_count: int
-    created_at: str
+    created_at: datetime
+    
+    @field_serializer('created_at')
+    def serialize_created_at(self, v):
+        return v.isoformat() + 'Z' if v else None
     
     class Config:
         from_attributes = True

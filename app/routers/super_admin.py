@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 from typing import List, Optional
+from datetime import datetime
 
 from ..database import get_db
 from ..dependencies import get_super_admin_user
@@ -40,7 +41,11 @@ class LearningCenterResponse(BaseModel):
     group_limit: int
     is_active: bool
     is_paid: bool
-    created_at: str
+    created_at: datetime
+    
+    @field_serializer('created_at')
+    def serialize_created_at(self, v):
+        return v.isoformat() + 'Z' if v else None
     
     class Config:
         from_attributes = True
@@ -228,7 +233,11 @@ class UserResponse(BaseModel):
     learning_center_id: int
     coins: int
     is_active: bool
-    created_at: str
+    created_at: datetime
+    
+    @field_serializer('created_at')
+    def serialize_created_at(self, v):
+        return v.isoformat() + 'Z' if v else None
     
     class Config:
         from_attributes = True
@@ -450,7 +459,11 @@ class CourseResponse(BaseModel):
     title: str
     learning_center_id: int
     is_active: bool
-    created_at: str
+    created_at: datetime
+    
+    @field_serializer('created_at')
+    def serialize_created_at(self, v):
+        return v.isoformat() + 'Z' if v else None
     
     class Config:
         from_attributes = True
@@ -462,7 +475,11 @@ class LessonResponse(BaseModel):
     content: Optional[str]
     order: int
     course_id: int
-    created_at: str
+    created_at: datetime
+    
+    @field_serializer('created_at')
+    def serialize_created_at(self, v):
+        return v.isoformat() + 'Z' if v else None
     
     class Config:
         from_attributes = True
@@ -479,7 +496,11 @@ class WordResponse(BaseModel):
     image: Optional[str]
     lesson_id: int
     order: int
-    created_at: str
+    created_at: datetime
+    
+    @field_serializer('created_at')
+    def serialize_created_at(self, v):
+        return v.isoformat() + 'Z' if v else None
     
     class Config:
         from_attributes = True
