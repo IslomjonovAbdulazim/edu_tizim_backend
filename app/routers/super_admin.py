@@ -6,6 +6,7 @@ from typing import List, Optional
 from datetime import datetime
 import os
 import requests
+import logging
 
 from ..database import get_db
 from ..dependencies import get_super_admin_user
@@ -897,28 +898,40 @@ async def generate_audio(
     current_user = Depends(get_super_admin_user)
 ):
     """Generate audio using Narakeet TTS (Super Admin only)"""
-    api_key = os.environ.get('NARAKEET')
-    
-    if not api_key:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"NARAKEET environment variable not set. Available keys: {list(os.environ.keys())[:10]}"
-        )
-    
-    url = f'https://api.narakeet.com/text-to-speech/m4a?voice={request.voice}'
-    
-    options = {
-        'headers': {
-            'Accept': 'application/octet-stream',
-            'Content-Type': 'text/plain',
-            'x-api-key': api_key,
-        },
-        'data': request.text.encode('utf8')
-    }
+    logger = logging.getLogger(__name__)
     
     try:
+        logger.info(f"Starting audio generation for text: {request.text[:50]}...")
+        
+        api_key = os.environ.get('NARAKEET')
+        logger.info(f"API key present: {bool(api_key)}")
+        
+        if not api_key:
+            logger.error("NARAKEET environment variable not found")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="NARAKEET environment variable not set"
+            )
+        
+        url = f'https://api.narakeet.com/text-to-speech/m4a?voice={request.voice}'
+        logger.info(f"Calling Narakeet API: {url}")
+        
+        options = {
+            'headers': {
+                'Accept': 'application/octet-stream',
+                'Content-Type': 'text/plain',
+                'x-api-key': api_key,
+            },
+            'data': request.text.encode('utf8')
+        }
+        
         response = requests.post(url, **options)
+        logger.info(f"Narakeet response status: {response.status_code}")
+        logger.info(f"Narakeet response headers: {dict(response.headers)}")
+        
         response.raise_for_status()
+        
+        logger.info(f"Audio generated successfully, size: {len(response.content)} bytes")
         
         return Response(
             content=response.content,
@@ -929,14 +942,23 @@ async def generate_audio(
         )
         
     except requests.exceptions.HTTPError as e:
-        error_message = f'HTTP error occurred: {e.response.status_code} - {e.response.reason}'
+        logger.error(f"Narakeet HTTP error: {e}")
+        logger.error(f"Response status: {e.response.status_code}")
+        logger.error(f"Response text: {e.response.text}")
+        
+        error_message = f'HTTP error: {e.response.status_code} - {e.response.reason}'
         error_details = e.response.text if hasattr(e.response, 'text') else str(e)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=f'{error_message}. Details: {error_details}'
         )
     except Exception as e:
+        logger.error(f"Unexpected error in audio generation: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Audio generation failed: {str(e)}"
+            detail=f"Audio generation failed: {str(e)} - Type: {type(e).__name__}"
         )
