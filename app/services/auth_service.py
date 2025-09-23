@@ -80,7 +80,7 @@ class AuthService:
                 settings.SECRET_KEY, 
                 algorithms=[settings.ALGORITHM]
             )
-            user_id: int = payload.get("sub")
+            user_id: int = int(payload.get("sub"))
             token_type: str = payload.get("type")
             
             if token_type != "refresh":
@@ -112,7 +112,7 @@ class AuthService:
         """Create JWT access token"""
         expire = datetime.utcnow() + timedelta(days=settings.ACCESS_TOKEN_EXPIRE_DAYS)
         payload = {
-            "sub": user_id,
+            "sub": str(user_id),  # Convert to string for JWT compliance
             "type": "access",
             "exp": expire
         }
@@ -122,7 +122,7 @@ class AuthService:
         """Create JWT refresh token"""
         expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
         payload = {
-            "sub": user_id,
+            "sub": str(user_id),  # Convert to string for JWT compliance
             "type": "refresh", 
             "exp": expire
         }
