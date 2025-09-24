@@ -72,7 +72,7 @@ async def verify_and_login(
     db: Session = Depends(get_db)
 ):
     """Verify code and login user"""
-    user, access_token, refresh_token = auth_service.verify_code_and_login(
+    user, access_token, refresh_token = await auth_service.verify_code_and_login(
         request.phone,
         request.code,
         request.learning_center_id,
