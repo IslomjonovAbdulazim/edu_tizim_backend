@@ -33,6 +33,7 @@ class User(Base):
     word_history = relationship("WordHistory", back_populates="student")
     coin_transactions = relationship("CoinTransaction", back_populates="student")
     leaderboard = relationship("Leaderboard", back_populates="student", uselist=False)
+    otp_requests = relationship("OtpRequest", back_populates="user")
     
     # Indexes
     __table_args__ = (

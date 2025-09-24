@@ -49,11 +49,12 @@ class LearningCenterResponse(BaseModel):
 
 
 @router.post("/send-code")
-async def send_verification_code(request: SendCodeRequest):
+async def send_verification_code(request: SendCodeRequest, db: Session = Depends(get_db)):
     """Send verification code to phone number"""
     success = await auth_service.send_verification_code(
         request.phone, 
-        request.learning_center_id
+        request.learning_center_id,
+        db
     )
     
     if not success:

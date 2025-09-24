@@ -8,7 +8,7 @@ from fastapi import HTTPException, status
 
 from ..config import settings
 from ..database import get_redis
-from ..models import User
+from ..models import User, OtpRequest
 from .sms_service import sms_service
 
 
@@ -17,20 +17,57 @@ class AuthService:
         self.redis = get_redis()
 
 
-    async def send_verification_code(self, phone: str, learning_center_id: int) -> bool:
-        """Send verification code to phone number"""
-        # Generate verification code
+    async def send_verification_code(self, phone: str, learning_center_id: int, db: Session) -> bool:
+        """Send verification code to phone number with rate limiting and user validation"""
+        
+        # 1. Check if user exists in the learning center
+        user = db.query(User).filter(
+            User.phone == phone,
+            User.learning_center_id == learning_center_id,
+            User.is_active == True
+        ).first()
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found in this learning center"
+            )
+        
+        # 2. Check rate limiting - 1 minute cooldown
+        one_minute_ago = datetime.utcnow() - timedelta(minutes=1)
+        recent_request = db.query(OtpRequest).filter(
+            OtpRequest.user_id == user.id,
+            OtpRequest.created_at > one_minute_ago
+        ).first()
+        
+        if recent_request:
+            time_left = 60 - int((datetime.utcnow() - recent_request.created_at).total_seconds())
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Please wait {time_left} seconds before requesting another code"
+            )
+        
+        # 3. Generate verification code
         if settings.TEST_VERIFICATION_CODE and phone.endswith("0000"):
             # Use test code for testing
             code = settings.TEST_VERIFICATION_CODE
         else:
             code = self._generate_verification_code()
         
-        # Store in Redis with 5 minutes expiry
+        # 4. Store in Redis with 5 minutes expiry
         key = f"verification:{phone}:{learning_center_id}"
         await self.redis.setex(key, 300, code)  # 5 minutes
         
-        # Send SMS
+        # 5. Record OTP request in database (don't store the actual code)
+        otp_request = OtpRequest(
+            user_id=user.id,
+            phone=phone,
+            learning_center_id=learning_center_id
+        )
+        db.add(otp_request)
+        db.commit()
+        
+        # 6. Send SMS
         return await sms_service.send_verification_code(phone, code)
     
     async def verify_code_and_login(
@@ -106,8 +143,8 @@ class AuthService:
             )
     
     def _generate_verification_code(self) -> str:
-        """Generate 4-digit verification code"""
-        return ''.join(random.choices(string.digits, k=4))
+        """Generate 6-digit verification code"""
+        return ''.join(random.choices(string.digits, k=6))
     
     def _create_access_token(self, user_id: int) -> str:
         """Create JWT access token"""

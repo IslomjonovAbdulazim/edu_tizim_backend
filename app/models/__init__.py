@@ -5,6 +5,7 @@ from .lesson import Lesson
 from .word import Word, WordDifficulty
 from .group import Group, GroupStudent
 from .progress import LessonProgress, WordHistory, CoinTransaction, Leaderboard, TransactionType
+from .otp_request import OtpRequest
 
 __all__ = [
     "User",
@@ -21,4 +22,5 @@ __all__ = [
     "CoinTransaction",
     "Leaderboard",
     "TransactionType",
+    "OtpRequest",
 ]
