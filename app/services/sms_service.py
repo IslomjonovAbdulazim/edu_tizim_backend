@@ -49,7 +49,7 @@ class SMSService:
     async def _get_eskiz_token(self) -> str:
         """Get or refresh Eskiz token"""
         # Check if token exists in Redis
-        token = self.redis.get(self.TOKEN_KEY)
+        token = await self.redis.get(self.TOKEN_KEY)
         if token:
             logger.info(f"Found cached token: {token[:20]}...{token[-10:]} (length: {len(token)})")
             return token
@@ -79,7 +79,7 @@ class SMSService:
             logger.info(f"Got fresh token: {token[:20]}...{token[-10:]} (length: {len(token)})")
             
             # Store token for 29 days
-            self.redis.setex(self.TOKEN_KEY, 60 * 60 * 24 * 29, token)
+            await self.redis.setex(self.TOKEN_KEY, 60 * 60 * 24 * 29, token)
             logger.info("Token cached successfully in Redis")
             
             return token
