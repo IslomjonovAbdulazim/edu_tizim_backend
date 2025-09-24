@@ -29,6 +29,7 @@ class SMSService:
     async def _send_sms(self, phone: str, message: str) -> None:
         """Send SMS using Eskiz API"""
         token = await self._get_eskiz_token()
+        logger.info(f"Using token for SMS: {token[:20]}...{token[-10:]} (length: {len(token)})")
         
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -50,7 +51,10 @@ class SMSService:
         # Check if token exists in Redis
         token = self.redis.get(self.TOKEN_KEY)
         if token:
+            logger.info(f"Found cached token: {token[:20]}...{token[-10:]} (length: {len(token)})")
             return token
+        
+        logger.info("No cached token found, getting fresh token from Eskiz API")
         
         # Get new token
         async with httpx.AsyncClient() as client:
@@ -69,10 +73,14 @@ class SMSService:
             token = data.get("data", {}).get("token")
             
             if not token:
+                logger.error(f"No token in Eskiz response: {data}")
                 raise Exception("No token received from Eskiz API")
+            
+            logger.info(f"Got fresh token: {token[:20]}...{token[-10:]} (length: {len(token)})")
             
             # Store token for 29 days
             self.redis.setex(self.TOKEN_KEY, 60 * 60 * 24 * 29, token)
+            logger.info("Token cached successfully in Redis")
             
             return token
 
