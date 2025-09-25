@@ -144,7 +144,7 @@ async def super_admin_login(request: SuperAdminLoginRequest):
         request.password != settings.SUPER_ADMIN_PASSWORD):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Super admin ma'lumotlari noto'g'ri"}
+            detail="Super admin ma'lumotlari noto'g'ri"
         )
     
     # Generate token for super admin (user_id = 0 for super admin)
