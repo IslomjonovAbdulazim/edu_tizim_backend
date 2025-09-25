@@ -19,7 +19,7 @@ class SMSService:
         """Send verification code via SMS"""
         try:
             # Use approved template
-            message = f"Zehnly AI ilovasida ro'yxatdan o'tish uchun tasdiqlash kod: {code}"
+            message = f"Zehnly Students ilovasida ro'yxatdan o'tish uchun tasdiqlash kod: {code}"
             await self._send_sms(phone, message)
             return True
         except Exception as e:
