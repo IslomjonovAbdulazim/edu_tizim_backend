@@ -178,7 +178,7 @@ async def toggle_payment_status(
     
     
     return {
-        "message": f"To'lov holati {'yoqildi' if center.is_paid else 'o'chirildi'}",
+        "message": "To'lov holati " + ("yoqildi" if center.is_paid else "o'chirildi"),
         "is_paid": center.is_paid
     }
 
