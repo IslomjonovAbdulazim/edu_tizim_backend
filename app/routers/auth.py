@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List
@@ -49,21 +49,29 @@ class LearningCenterResponse(BaseModel):
 
 
 @router.post("/send-code")
-async def send_verification_code(request: SendCodeRequest, db: Session = Depends(get_db)):
+async def send_verification_code(
+    request: SendCodeRequest, 
+    http_request: Request,
+    db: Session = Depends(get_db)
+):
     """Send verification code to phone number"""
+    # Get client IP address
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    
     success = await auth_service.send_verification_code(
         request.phone, 
         request.learning_center_id,
+        client_ip,
         db
     )
     
     if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to send verification code"
+            detail="Tasdiqlash kodini yuborishda xatolik"
         )
     
-    return {"message": "Verification code sent successfully"}
+    return {"message": "Tasdiqlash kodi muvaffaqiyatli yuborildi"}
 
 
 @router.post("/verify-login", response_model=TokenResponse)
@@ -136,7 +144,7 @@ async def super_admin_login(request: SuperAdminLoginRequest):
         request.password != settings.SUPER_ADMIN_PASSWORD):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid super admin credentials"
+            detail="Super admin ma'lumotlari noto'g'ri"}
         )
     
     # Generate token for super admin (user_id = 0 for super admin)

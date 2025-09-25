@@ -17,7 +17,7 @@ class AuthService:
         self.redis = get_redis()
 
 
-    async def send_verification_code(self, phone: str, learning_center_id: int, db: Session) -> bool:
+    async def send_verification_code(self, phone: str, learning_center_id: int, client_ip: str, db: Session) -> bool:
         """Send verification code to phone number with rate limiting and user validation"""
         
         # 1. Check if user exists in the learning center
@@ -44,30 +44,56 @@ class AuthService:
             time_left = 60 - int((datetime.utcnow() - recent_request.created_at).total_seconds())
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Please wait {time_left} seconds before requesting another code"
+                detail=f"Iltimos, keyingi kod so'rashdan oldin {time_left} soniya kuting"
             )
         
-        # 3. Generate verification code
+        # 3. Check daily limit - max 5 OTP per day per user
+        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_requests = db.query(OtpRequest).filter(
+            OtpRequest.user_id == user.id,
+            OtpRequest.created_at >= today_start
+        ).count()
+        
+        if today_requests >= 5:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Kunlik OTP kod limiti tugadi. Ertaga qayta urinib ko'ring (maksimal 5 ta)"
+            )
+        
+        # 4. Check IP-based daily limit - max 5 OTP per day per IP
+        today_ip_requests = db.query(OtpRequest).filter(
+            OtpRequest.ip_address == client_ip,
+            OtpRequest.created_at >= today_start
+        ).count()
+        
+        if today_ip_requests >= 5:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Bu IP manzildan kunlik OTP kod limiti tugadi. Ertaga qayta urinib ko'ring (maksimal 5 ta)"
+            )
+        
+        # 5. Generate verification code
         if settings.TEST_VERIFICATION_CODE and phone.endswith("0000"):
             # Use test code for testing
             code = settings.TEST_VERIFICATION_CODE
         else:
             code = self._generate_verification_code()
         
-        # 4. Store in Redis with 5 minutes expiry
+        # 6. Store in Redis with 5 minutes expiry
         key = f"verification:{phone}:{learning_center_id}"
         await self.redis.setex(key, 300, code)  # 5 minutes
         
-        # 5. Record OTP request in database (don't store the actual code)
+        # 7. Record OTP request in database (don't store the actual code)
         otp_request = OtpRequest(
             user_id=user.id,
             phone=phone,
-            learning_center_id=learning_center_id
+            learning_center_id=learning_center_id,
+            ip_address=client_ip
         )
         db.add(otp_request)
         db.commit()
         
-        # 6. Send SMS
+        # 8. Send SMS
         return await sms_service.send_verification_code(phone, code)
     
     async def verify_code_and_login(

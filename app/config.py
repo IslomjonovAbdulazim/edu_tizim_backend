@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     ESKIZ_FROM: str = "4546"
     TEST_VERIFICATION_CODE: str = "1234"
     
+    # Narakeet TTS Configuration
+    NARAKEET: str
+    
     @property
     def cors_origins(self) -> List[str]:
         return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]

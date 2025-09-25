@@ -12,6 +12,7 @@ class OtpRequest(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     phone = Column(String(20), nullable=False, index=True)
     learning_center_id = Column(Integer, ForeignKey("learning_centers.id"), nullable=False)
+    ip_address = Column(String(45), nullable=True, index=True)  # IPv4 (15) or IPv6 (45)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     
     # Relationships

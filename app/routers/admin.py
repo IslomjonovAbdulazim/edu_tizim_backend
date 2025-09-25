@@ -86,7 +86,7 @@ async def create_user(
     if request.role == UserRole.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin accounts can only be created by Super Admin"
+            detail="Admin hisoblarini faqat Super Admin yarata oladi"
         )
     
     user = user_service.create_user(
@@ -136,7 +136,7 @@ async def get_user(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
+            detail="Foydalanuvchi topilmadi"
         )
     
     return user
@@ -159,7 +159,7 @@ async def update_user(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
+            detail="Foydalanuvchi topilmadi"
         )
     
     # Check if phone number is unique within learning center (if updating phone)
@@ -174,14 +174,14 @@ async def update_user(
         if existing_phone:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Phone number already exists in this learning center"
+                detail="Bu telefon raqami ushbu o'quv markazida allaqachon mavjud"
             )
     
     # Admin cannot change user role to admin
     if request.role == UserRole.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin role can only be assigned by Super Admin"
+            detail="Admin rolini faqat Super Admin tayinlashi mumkin"
         )
     
     # Update fields if provided
@@ -214,7 +214,7 @@ async def deactivate_user(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
+            detail="Foydalanuvchi topilmadi"
         )
     
     # Soft delete: mark as inactive and set deleted_at timestamp
@@ -222,7 +222,7 @@ async def deactivate_user(
     user.deleted_at = func.now()
     db.commit()
     
-    return {"message": "User deactivated successfully"}
+    return {"message": "Foydalanuvchi muvaffaqiyatli o'chirildi"}
 
 
 # Group Management
@@ -246,7 +246,7 @@ async def create_group(
     if not teacher:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Teacher not found"
+            detail="O'qituvchi topilmadi"
         )
     
     # Verify course exists and belongs to same learning center (exclude deleted)
@@ -260,7 +260,7 @@ async def create_group(
     if not course:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Course not found"
+            detail="Kurs topilmadi"
         )
     
     group = Group(
@@ -319,7 +319,7 @@ async def get_group(
     if not group:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Group not found"
+            detail="Guruh topilmadi"
         )
     
     # Add student count
@@ -348,7 +348,7 @@ async def update_group(
     if not group:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Group not found"
+            detail="Guruh topilmadi"
         )
     
     # Validate teacher if updating (exclude deleted)
@@ -364,7 +364,7 @@ async def update_group(
         if not teacher:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Teacher not found"
+                detail="O'qituvchi topilmadi"
             )
     
     # Validate course if updating (exclude deleted)
@@ -379,7 +379,7 @@ async def update_group(
         if not course:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Course not found"
+                detail="Kurs topilmadi"
             )
     
     # Update fields if provided
@@ -417,7 +417,7 @@ async def add_student_to_group(
         current_user=current_user
     )
     
-    return {"message": "Student added to group successfully"}
+    return {"message": "Talaba guruhga muvaffaqiyatli qo'shildi"}
 
 
 @router.delete("/groups/{group_id}/students/{student_id}")
@@ -438,7 +438,7 @@ async def remove_student_from_group(
     if not group:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Group not found"
+            detail="Guruh topilmadi"
         )
     
     # Remove student from group
@@ -450,13 +450,13 @@ async def remove_student_from_group(
     if not group_student:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Student not in group"
+            detail="Talaba guruhda emas"
         )
     
     db.delete(group_student)
     db.commit()
     
-    return {"message": "Student removed from group successfully"}
+    return {"message": "Talaba guruhdan muvaffaqiyatli olib tashlandi"}
 
 
 @router.delete("/groups/{group_id}")
@@ -475,10 +475,10 @@ async def delete_group(
     if not group:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Group not found"
+            detail="Guruh topilmadi"
         )
     
     group.deleted_at = func.now()
     db.commit()
     
-    return {"message": "Group deleted successfully"}
+    return {"message": "Guruh muvaffaqiyatli o'chirildi"}

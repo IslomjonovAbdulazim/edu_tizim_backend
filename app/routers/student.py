@@ -121,4 +121,4 @@ async def complete_lesson(
     
     db.commit()
     
-    return {"message": "Lesson completed", "score": score}
+    return {"message": "Dars yakunlandi", "score": score}

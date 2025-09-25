@@ -122,7 +122,7 @@ async def list_lessons(
     ).first()
     
     if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
+        raise HTTPException(status_code=404, detail="Kurs topilmadi")
     
     # Get lessons with word count
     lessons = db.query(
@@ -167,7 +167,7 @@ async def list_words(
     ).first()
     
     if not lesson:
-        raise HTTPException(status_code=404, detail="Lesson not found")
+        raise HTTPException(status_code=404, detail="Dars topilmadi")
     
     words = db.query(Word).filter(
         Word.lesson_id == lesson_id,

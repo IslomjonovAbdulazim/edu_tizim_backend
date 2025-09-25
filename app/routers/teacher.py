@@ -38,11 +38,11 @@ async def get_group_students(
     ).first()
     
     if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise HTTPException(status_code=404, detail="Guruh topilmadi")
     
     # Get students with progress
     # Implementation would include joins with progress tables
     
-    return {"message": "Students with progress data"}
+    return {"message": "Talabalar va ularning muvaffaqiyatlari"}
 
 

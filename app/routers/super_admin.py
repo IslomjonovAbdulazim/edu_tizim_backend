@@ -111,7 +111,7 @@ async def upload_center_logo(
     if not center:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Learning center not found"
+            detail="O'quv markazi topilmadi"
         )
     
     # Save logo file
@@ -122,7 +122,7 @@ async def upload_center_logo(
     db.commit()
     
     
-    return {"message": "Logo uploaded successfully", "path": logo_path}
+    return {"message": "Logo muvaffaqiyatli yuklandi", "path": logo_path}
 
 
 @router.put("/learning-centers/{center_id}", response_model=LearningCenterResponse)
@@ -141,7 +141,7 @@ async def update_learning_center(
     if not center:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Learning center not found"
+            detail="O'quv markazi topilmadi"
         )
     
     # Update fields if provided
@@ -170,7 +170,7 @@ async def toggle_payment_status(
     if not center:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Learning center not found"
+            detail="O'quv markazi topilmadi"
         )
     
     center.is_paid = not center.is_paid
@@ -178,7 +178,7 @@ async def toggle_payment_status(
     
     
     return {
-        "message": f"Payment status {'enabled' if center.is_paid else 'disabled'}",
+        "message": f"To'lov holati {'yoqildi' if center.is_paid else 'o'chirildi'}",
         "is_paid": center.is_paid
     }
 
@@ -198,7 +198,7 @@ async def deactivate_learning_center(
     if not center:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Learning center not found"
+            detail="O'quv markazi topilmadi"
         )
     
     # Soft delete: mark as inactive and set deleted_at timestamp
@@ -207,7 +207,7 @@ async def deactivate_learning_center(
     center.deleted_at = func.now()
     db.commit()
     
-    return {"message": "Learning center deactivated successfully"}
+    return {"message": "O'quv markazi muvaffaqiyatli o'chirildi"}
 
 
 # User Management Schemas
@@ -260,7 +260,7 @@ async def create_user(
     if not center:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Learning center not found"
+            detail="O'quv markazi topilmadi"
         )
     
     # Check if phone number is unique within learning center (exclude deleted users)
@@ -273,7 +273,7 @@ async def create_user(
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Phone number already exists in this learning center"
+            detail="Bu telefon raqami ushbu o'quv markazida allaqachon mavjud"
         )
     
     user = user_service.create_user(
@@ -324,7 +324,7 @@ async def get_user(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
+            detail="Foydalanuvchi topilmadi"
         )
     
     return user
@@ -346,7 +346,7 @@ async def update_user(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
+            detail="Foydalanuvchi topilmadi"
         )
     
     # Validate learning center if updating
@@ -357,7 +357,7 @@ async def update_user(
         if not center:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Learning center not found"
+                detail="O'quv markazi topilmadi"
             )
     
     # Check phone uniqueness if updating phone (exclude deleted users)
@@ -373,7 +373,7 @@ async def update_user(
         if existing_phone:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Phone number already exists in this learning center"
+                detail="Bu telefon raqami ushbu o'quv markazida allaqachon mavjud"
             )
     
     # Update fields if provided
@@ -401,7 +401,7 @@ async def delete_user(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
+            detail="Foydalanuvchi topilmadi"
         )
     
     # Soft delete: mark as inactive and set deleted_at timestamp
@@ -410,7 +410,7 @@ async def delete_user(
     user.deleted_at = func.now()
     db.commit()
     
-    return {"message": "User deleted successfully"}
+    return {"message": "Foydalanuvchi muvaffaqiyatli o'chirildi"}
 
 
 # Content Management Schemas
@@ -530,7 +530,7 @@ async def create_course(
     if not center:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Learning center not found"
+            detail="O'quv markazi topilmadi"
         )
     
     course = Course(
@@ -605,7 +605,7 @@ async def update_course(
     if not course:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Course not found"
+            detail="Kurs topilmadi"
         )
     
     # Update fields if provided
@@ -619,7 +619,7 @@ async def update_course(
         if not center:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Learning center not found"
+                detail="O'quv markazi topilmadi"
             )
         course.learning_center_id = request.learning_center_id
     
@@ -644,7 +644,7 @@ async def delete_course(
     if not course:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Course not found"
+            detail="Kurs topilmadi"
         )
     
     # Soft delete: mark as inactive and set deleted_at timestamp
@@ -653,7 +653,7 @@ async def delete_course(
     course.deleted_at = func.now()
     db.commit()
     
-    return {"message": "Course deleted successfully"}
+    return {"message": "Kurs muvaffaqiyatli o'chirildi"}
 
 
 @router.post("/content/courses/{course_id}/lessons", response_model=LessonResponse)
@@ -673,7 +673,7 @@ async def create_lesson(
     if not course:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Course not found"
+            detail="Kurs topilmadi"
         )
     
     lesson = Lesson(
@@ -750,7 +750,7 @@ async def update_lesson(
     if not lesson:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Lesson not found"
+            detail="Dars topilmadi"
         )
     
     # Update fields if provided
@@ -782,14 +782,14 @@ async def delete_lesson(
     if not lesson:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Lesson not found"
+            detail="Dars topilmadi"
         )
     
     from sqlalchemy.sql import func
     lesson.deleted_at = func.now()
     db.commit()
     
-    return {"message": "Lesson deleted successfully"}
+    return {"message": "Dars muvaffaqiyatli o'chirildi"}
 
 
 @router.post("/content/lessons/{lesson_id}/words", response_model=WordResponse)
@@ -806,7 +806,7 @@ async def create_word(
     if not lesson:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Lesson not found"
+            detail="Dars topilmadi"
         )
     
     word = Word(
@@ -857,7 +857,7 @@ async def update_word(
     if not word:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Word not found"
+            detail="So'z topilmadi"
         )
     
     # Update fields if provided
@@ -882,14 +882,14 @@ async def delete_word(
     if not word:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Word not found"
+            detail="So'z topilmadi"
         )
     
     from sqlalchemy.sql import func
     word.deleted_at = func.now()
     db.commit()
     
-    return {"message": "Word deleted successfully"}
+    return {"message": "So'z muvaffaqiyatli o'chirildi"}
 
 
 @router.post("/content/words/{word_id}/audio")
@@ -905,7 +905,7 @@ async def upload_word_audio(
     if not word:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Word not found"
+            detail="So'z topilmadi"
         )
     
     # Save audio file
@@ -915,7 +915,7 @@ async def upload_word_audio(
     word.audio = audio_path
     db.commit()
     
-    return {"message": "Audio uploaded successfully", "path": audio_path}
+    return {"message": "Audio muvaffaqiyatli yuklandi", "path": audio_path}
 
 
 @router.post("/content/words/{word_id}/image")
@@ -931,7 +931,7 @@ async def upload_word_image(
     if not word:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Word not found"
+            detail="So'z topilmadi"
         )
     
     # Save image file
@@ -941,7 +941,7 @@ async def upload_word_image(
     word.image = image_path
     db.commit()
     
-    return {"message": "Image uploaded successfully", "path": image_path}
+    return {"message": "Rasm muvaffaqiyatli yuklandi", "path": image_path}
 
 
 @router.post("/generate-audio")
@@ -962,7 +962,7 @@ async def generate_audio(
             logger.error("NARAKEET environment variable not found")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="NARAKEET environment variable not set"
+                detail="NARAKEET muhit o'zgaruvchisi o'rnatilmagan"
             )
         
         # Build URL with voice parameter
@@ -1016,5 +1016,5 @@ async def generate_audio(
         
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Audio generation failed: {str(e)} - Type: {type(e).__name__}"
+            detail=f"Audio yaratish muvaffaqiyatsiz tugadi: {str(e)} - Turi: {type(e).__name__}"
         )
